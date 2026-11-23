@@ -17,6 +17,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/anderescaray/autoclicker/releases/latest"><b>⬇ Download the installer</b></a>
+</p>
+
+<p align="center">
   <img src="docs/images/main-window.png" alt="AutoClicker Visual: flows in the sidebar; the editor shows the marked list, live check, options and six recorded steps" width="920">
 </p>
 
@@ -73,7 +77,7 @@ flowchart LR
 
 ## Get started
 
-1. **Install.** Run `AutoClickerVisual-Setup-<version>.exe`. It installs for your user only, with no administrator rights. SmartScreen may warn about an unsigned app the first time: choose **More info → Run anyway**.
+1. **Install.** Download `AutoClickerVisual-Setup-<version>.exe` from the [latest release](https://github.com/anderescaray/autoclicker/releases/latest) and run it. It installs for your user only, with no administrator rights. SmartScreen may warn about an unsigned app the first time: choose **More info → Run anyway**.
 2. **Create a flow.** Click **+** → **New flow**. There's no monitor to choose: the list is found on whichever screen shows it.
 3. **Mark the list.** Click **Mark anchor and first row**. Every screen freezes: on the one showing the list, drag around its header, then around the first row. The live check confirms it can see them.
 4. **Record.** Press **Record**, process one item by hand, then press **Finish** on the capsule.

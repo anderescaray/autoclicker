@@ -1,0 +1,37 @@
+name: Release
+
+# Push a tag like v1.2.0 to build the installer on Windows and publish it as a GitHub Release.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - name: Install Inno Setup 6
+        run: choco install innosetup --no-progress -y
+      - name: Build with build.ps1
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          ./build.ps1 -Version $version
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/installer/*.exe
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          body: |
+            ### Install
+            1. Download the **AutoClickerVisual-Setup** `.exe` from *Assets* below.
+            2. Run it. It installs for your user only and needs no administrator rights.
+            3. The first time, Windows SmartScreen may warn about an unsigned app: choose **More info → Run anyway**.
+
+            Installing a newer version replaces the old one and keeps your flows.
+            New here? The [README](https://github.com/anderescaray/autoclicker#readme) explains how to create your first flow.
