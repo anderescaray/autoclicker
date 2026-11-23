@@ -32,6 +32,7 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements*.txt
+      - uses: astral-sh/setup-uv@v6  # build.ps1 prefers uv when it is installed
       - name: Install Inno Setup 6
         run: choco install innosetup --no-progress -y
       - name: Build with build.ps1
