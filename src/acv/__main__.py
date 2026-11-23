@@ -29,13 +29,14 @@ def main() -> None:
     setup_logging()
     log.info("%s %s starting", APP_NAME, __version__)
 
-    from PySide6.QtCore import QTimer, QUrl
+    from PySide6.QtCore import Qt, QTimer, QUrl
     from PySide6.QtGui import QDesktopServices, QIcon
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from acv.ui.main_window import MainWindow
 
     app = QApplication(sys.argv)
+    app.styleHints().setColorScheme(Qt.ColorScheme.Light)  # the design is light-only; ignore Windows dark mode
     app.setApplicationName(APP_NAME)
     # our windows are hidden during captures/runs; closing a helper window then must not quit the app
     app.setQuitOnLastWindowClosed(False)
