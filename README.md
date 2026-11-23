@@ -96,7 +96,7 @@ python tools/demo_list_app.py --items 10
 
 ## Build the installer
 
-You need **Windows 10/11 x64**, **[Python 3.11+](https://www.python.org/downloads/windows/)** (3.12 recommended) and **[Inno Setup 6](https://jrsoftware.org/isdl.php)** (`winget install JRSoftware.InnoSetup`).
+You need **Windows 10/11 x64**, **[uv](https://docs.astral.sh/uv/)** or **[Python 3.11+](https://www.python.org/downloads/windows/)**, and **[Inno Setup 6](https://jrsoftware.org/isdl.php)** (`winget install JRSoftware.InnoSetup`). With uv, the script fetches Python 3.12 by itself.
 
 ```powershell
 git clone https://github.com/anderescaray/autoclicker.git

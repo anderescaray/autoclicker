@@ -61,25 +61,31 @@ Write-Host "AutoClicker Visual $Version" -ForegroundColor White
 
 # --- 1. Python ------------------------------------------------------------
 Write-Step 'Looking for Python 3.11+'
-$candidates = @(
-    @{ Exe = 'py'; Args = @('-3.12') },
-    @{ Exe = 'py'; Args = @('-3.13') },
-    @{ Exe = 'py'; Args = @('-3.11') },
-    @{ Exe = 'python'; Args = @() }
-)
+# uv (https://docs.astral.sh/uv/) is used when installed: it fetches Python 3.12 itself if needed.
+$uv = Get-Command 'uv' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
 $python = $null
-foreach ($c in $candidates) {
-    try {
-        $pyArgs = $c.Args
-        $ok = & $c.Exe @pyArgs -c 'import sys; print(sys.version_info >= (3, 11))' 2>$null
-        if ($LASTEXITCODE -eq 0 -and $ok -eq 'True') { $python = $c; break }
-    } catch { }
+if ($uv) {
+    Write-Host "    using uv: $uv"
+} else {
+    $candidates = @(
+        @{ Exe = 'py'; Args = @('-3.12') },
+        @{ Exe = 'py'; Args = @('-3.13') },
+        @{ Exe = 'py'; Args = @('-3.11') },
+        @{ Exe = 'python'; Args = @() }
+    )
+    foreach ($c in $candidates) {
+        try {
+            $pyArgs = $c.Args
+            $ok = & $c.Exe @pyArgs -c 'import sys; print(sys.version_info >= (3, 11))' 2>$null
+            if ($LASTEXITCODE -eq 0 -and $ok -eq 'True') { $python = $c; break }
+        } catch { }
+    }
+    if (-not $python) {
+        Stop-Build ('Python 3.11 or newer was not found. Install uv (https://docs.astral.sh/uv/) or Python 3.12 from ' +
+                    'https://www.python.org/downloads/windows/ (tick "Add python.exe to PATH"), then run this script again.')
+    }
+    Write-Host "    using: $($python.Exe) $($python.Args -join ' ')"
 }
-if (-not $python) {
-    Stop-Build ('Python 3.11 or newer was not found. Install Python 3.12 from https://www.python.org/downloads/windows/ ' +
-                '(tick "Add python.exe to PATH") and run this script again.')
-}
-Write-Host "    using: $($python.Exe) $($python.Args -join ' ')"
 
 # --- 2. Virtual environment ---------------------------------------------
 if ($Clean) {
@@ -89,15 +95,24 @@ if ($Clean) {
 $venvPython = '.venv\Scripts\python.exe'
 if (-not (Test-Path $venvPython)) {
     Write-Step 'Creating virtual environment (.venv)'
-    $pyArgs = $python.Args
-    & $python.Exe @pyArgs -m venv .venv
+    if ($uv) {
+        & $uv venv --python 3.12 .venv
+    } else {
+        $pyArgs = $python.Args
+        & $python.Exe @pyArgs -m venv .venv
+    }
     Assert-LastExit 'Creating the virtual environment'
 }
 Write-Step 'Installing dependencies'
-& $venvPython -m pip install --disable-pip-version-check -q --upgrade pip
-Assert-LastExit 'Upgrading pip'
-& $venvPython -m pip install --disable-pip-version-check -q -r requirements.txt -r requirements-dev.txt
-Assert-LastExit 'Installing dependencies'
+if ($uv) {
+    & $uv pip install --python $venvPython -q -r requirements.txt -r requirements-dev.txt
+    Assert-LastExit 'Installing dependencies'
+} else {
+    & $venvPython -m pip install --disable-pip-version-check -q --upgrade pip
+    Assert-LastExit 'Upgrading pip'
+    & $venvPython -m pip install --disable-pip-version-check -q -r requirements.txt -r requirements-dev.txt
+    Assert-LastExit 'Installing dependencies'
+}
 
 # --- 3. Tests -------------------------------------------------------------
 if ($SkipTests) {
