@@ -1,0 +1,10 @@
+[project]
+name = "autoclicker-visual"
+dynamic = ["version"]
+description = "Local, vision-based click automation for repetitive desktop work on Windows."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,5 @@
+PySide6-Essentials==6.8.1
+opencv-python-headless==4.10.0.84
+numpy==2.2.1
+mss==10.0.0
+pynput==1.7.7
