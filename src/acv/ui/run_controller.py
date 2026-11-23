@@ -85,12 +85,12 @@ class RunPanel(QWidget):
         self._drag = None
 
     def place(self, work_monitor):
-        """Bottom-right of another monitor if there is one, so it never covers the work area."""
+        """Top-centre, like the recording capsule: of another monitor if there is one, else of the work monitor."""
         work = qscreen_for(work_monitor)
         others = [s for s in QApplication.screens() if s is not work]
         geo = (others[0] if others else work).availableGeometry()
         self.adjustSize()
-        self.move(geo.right() - self.width() - 8, geo.bottom() - self.height() - 8)
+        self.move(geo.center().x() - self.width() // 2, geo.top())
 
     def set_running(self):
         self.ready_row.hide()
