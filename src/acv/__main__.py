@@ -7,6 +7,7 @@ import threading
 import traceback
 from pathlib import Path
 
+import acv
 from acv import APP_NAME, __version__, desktop, storage
 
 log = logging.getLogger("acv")
@@ -38,7 +39,7 @@ def main() -> None:
     app.setApplicationName(APP_NAME)
     # our windows are hidden during captures/runs; closing a helper window then must not quit the app
     app.setQuitOnLastWindowClosed(False)
-    resources = Path(__file__).resolve().parent / "resources"
+    resources = Path(acv.__file__).resolve().parent / "resources"  # also right inside the PyInstaller bundle
     app.setWindowIcon(QIcon(str(resources / "icon.png")))
     app.setStyleSheet((resources / "style.qss").read_text(encoding="utf-8"))
 

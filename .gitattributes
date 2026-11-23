@@ -1,0 +1,5 @@
+* text=auto
+# shell hooks must keep LF line endings, even on Windows checkouts
+tools/git-hooks/* text eol=lf
+*.png binary
+*.ico binary
