@@ -56,9 +56,15 @@ def _monitor_scale(x: int, y: int) -> float:
         return 1.0
     try:
         from ctypes import wintypes
-        hmon = ctypes.windll.user32.MonitorFromPoint(wintypes.POINT(x, y), 2)
+        user32 = ctypes.windll.user32
+        user32.MonitorFromPoint.restype = wintypes.HMONITOR
+        user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+        hmon = user32.MonitorFromPoint(wintypes.POINT(x, y), 2)  # MONITOR_DEFAULTTONEAREST
         dpi_x, dpi_y = ctypes.c_uint(), ctypes.c_uint()
-        ctypes.windll.shcore.GetDpiForMonitor(hmon, 0, ctypes.byref(dpi_x), ctypes.byref(dpi_y))
+        shcore = ctypes.windll.shcore
+        shcore.GetDpiForMonitor.argtypes = [wintypes.HMONITOR, ctypes.c_int,
+                                            ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
+        shcore.GetDpiForMonitor(hmon, 0, ctypes.byref(dpi_x), ctypes.byref(dpi_y))  # MDT_EFFECTIVE_DPI
         return round(dpi_x.value / 96, 2)
     except (AttributeError, OSError):
         return 1.0
@@ -125,7 +131,8 @@ class PynputInput:
     def maximize_window_at(self, x: int, y: int) -> None:
         root = root_window_at(self.left + x, self.top + y)
         if root:
-            ctypes.windll.user32.ShowWindow(root, 3)  # SW_MAXIMIZE
+            from ctypes import wintypes
+            ctypes.windll.user32.ShowWindow(wintypes.HWND(root), 3)  # SW_MAXIMIZE
 
 
 def root_window_at(x: int, y: int) -> int:
@@ -135,7 +142,9 @@ def root_window_at(x: int, y: int) -> int:
     from ctypes import wintypes
     user32 = ctypes.windll.user32
     user32.WindowFromPoint.restype = wintypes.HWND
+    user32.WindowFromPoint.argtypes = [wintypes.POINT]
     user32.GetAncestor.restype = wintypes.HWND
+    user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
     hwnd = user32.WindowFromPoint(wintypes.POINT(x, y))
     if not hwnd:
         return 0
