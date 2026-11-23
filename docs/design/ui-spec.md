@@ -1,4 +1,4 @@
-# UI redesign spec
+# UI spec
 
 Target look: **light, calm and precise, in the style of macOS System Settings**, with motion that feels native (springs, not fades everywhere). It must look hand-made, not template-made.
 

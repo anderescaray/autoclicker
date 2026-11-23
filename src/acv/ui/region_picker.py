@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import numpy as np
-from PySide6.QtCore import QEventLoop, QPoint, QRect, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtCore import QEventLoop, QPoint, QRect, QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 from ..model import MonitorInfo, Rect
+from . import theme
 from .common import place_on_monitor, to_qimage
 
-COLORS = ["#f59e0b", "#22c55e", "#3b82f6"]
 
 
 class RegionPicker(QWidget):
@@ -104,27 +104,44 @@ class RegionPicker(QWidget):
 
     def paintEvent(self, _):
         p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
         p.drawImage(self.rect(), self.image)
-        p.fillRect(self.rect(), QColor(0, 0, 0, 110))
+        p.fillRect(self.rect(), QColor(10, 14, 24, 120))
         boxes = [self._to_widget(r) for r in self.rects] + ([self._current] if self._current else [])
-        for i, box in enumerate(boxes):
+        sx, sy = self._scale()
+        accent = theme.color(theme.ACCENT)
+        for box in boxes:
             # show the real screen inside each marked box, undimmed
-            sx, sy = self._scale()
             src = QRect(round(box.x() * sx), round(box.y() * sy), round(box.width() * sx), round(box.height() * sy))
             p.drawImage(box, self.image, src)
-            p.setPen(QPen(QColor(COLORS[i % len(COLORS)]), 2))
-            p.drawRect(box)
+            tint = QColor(accent)
+            tint.setAlphaF(0.10)
+            p.setBrush(tint)
+            p.setPen(QPen(accent, 2))
+            p.drawRoundedRect(QRectF(box), 4, 4)
         step = min(len(self.rects), len(self.prompts) - 1)
-        prefix = f"Step {step + 1}/{len(self.prompts)}:  " if len(self.prompts) > 1 else ""
-        text = f"{prefix}{self.prompts[step]}\nEsc or right-click: go back"
-        font = QFont(self.font())
-        font.setPointSize(13)
-        p.setFont(font)
-        width = min(self.width() - 40, p.fontMetrics().horizontalAdvance(prefix + self.prompts[step]) + 60)
-        box = QRect((self.width() - width) // 2, 24, width, p.fontMetrics().height() * 2 + 24)
-        p.fillRect(box, QColor(17, 24, 39, 235))
-        p.setPen(QColor(COLORS[step % len(COLORS)]))
-        p.drawText(box, Qt.AlignCenter | Qt.TextWordWrap, text)
+        lead = f"Step {step + 1} of {len(self.prompts)}   " if len(self.prompts) > 1 else ""
+        bold = theme.font(14, QFont.DemiBold)
+        small = theme.font(12)
+        width = min(self.width() - 40, QFontMetrics(bold).horizontalAdvance(lead + self.prompts[step]) + 64)
+        pill = QRectF((self.width() - width) / 2, 22, width, 62)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(0, 0, 0, 235))
+        p.drawRoundedRect(pill, 22, 22)
+        p.setFont(bold)
+        p.setPen(QColor("#ffffff"))
+        line = QRectF(pill.x() + 24, pill.y() + 10, pill.width() - 48, 24)
+        if lead:
+            p.setPen(QColor(255, 255, 255, 140))
+            p.drawText(line, Qt.AlignLeft | Qt.AlignVCenter, lead)
+            line.setLeft(line.left() + QFontMetrics(bold).horizontalAdvance(lead))
+            p.setPen(QColor("#ffffff"))
+        p.drawText(line, Qt.AlignLeft | Qt.AlignVCenter,
+                   QFontMetrics(bold).elidedText(self.prompts[step], Qt.ElideRight, int(line.width())))
+        p.setFont(small)
+        p.setPen(QColor(255, 255, 255, 140))
+        p.drawText(QRectF(pill.x() + 24, pill.y() + 34, pill.width() - 48, 18), Qt.AlignLeft | Qt.AlignVCenter,
+                   "Esc or right-click: go back")
 
 
 def pick_regions(frame: np.ndarray, monitor: MonitorInfo, prompts: list[str]) -> list[Rect] | None:

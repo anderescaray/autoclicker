@@ -51,6 +51,18 @@ def set_dpi_awareness() -> None:
         ctypes.windll.user32.SetProcessDPIAware()
 
 
+def animations_enabled() -> bool:
+    """False when the user turned off animations in Windows (Accessibility > Visual effects)."""
+    if not IS_WINDOWS:
+        return True
+    try:
+        value = ctypes.c_int(1)
+        ok = ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(value), 0)  # SPI_GETCLIENTAREAANIMATION
+        return bool(value.value) if ok else True
+    except (AttributeError, OSError):
+        return True
+
+
 def _monitor_scale(x: int, y: int) -> float:
     if not IS_WINDOWS:
         return 1.0

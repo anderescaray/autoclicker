@@ -1,45 +1,20 @@
-"""Smaller dialogs: monitor choice, step editing, run options and run problems."""
+"""Dialogs: step editing and run problems."""
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGridLayout, QGroupBox,
-    QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QToolButton, QVBoxLayout,
+    QApplication, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QFrame,
+    QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QLineEdit, QSpinBox, QVBoxLayout,
 )
 
 from .. import engine
-from ..desktop import MssScreen, parse_keys
-from ..model import CLICK_IMAGE, CLICK_POINT, IMAGE_STEPS, KEY, STEP_TYPE_NAMES, TEXT, WAIT, MonitorInfo, Step
-from .common import image_label, to_pixmap
-
-
-class MonitorDialog(QDialog):
-    """Pick the work monitor by clicking its thumbnail."""
-
-    def __init__(self, monitors: list[MonitorInfo], current: int | None, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Choose the work monitor")
-        self.choice: MonitorInfo | None = None
-        lay = QVBoxLayout(self)
-        lay.addWidget(QLabel("Click the monitor where the list you want to process is shown."))
-        row = QHBoxLayout()
-        for m in monitors:
-            btn = QToolButton()
-            btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-            pix = to_pixmap(MssScreen(m).grab(), 320, 200)
-            btn.setIcon(pix)
-            btn.setIconSize(pix.size())
-            btn.setText(f"Monitor {m.index}  ·  {m.width}×{m.height}  ·  {round(m.scale * 100)} %")
-            btn.setCheckable(True)
-            btn.setChecked(m.index == current)
-            btn.clicked.connect(lambda _=False, m=m: self._choose(m))
-            row.addWidget(btn)
-        lay.addLayout(row)
-
-    def _choose(self, m: MonitorInfo):
-        self.choice = m
-        self.accept()
+from ..desktop import parse_keys
+from ..model import CLICK_IMAGE, CLICK_POINT, IMAGE_STEPS, KEY, STEP_TYPE_NAMES, TEXT, WAIT, Step
+from . import theme
+from .common import fit_pixmap, image_label
+from .widgets import PillButton, WarnIcon, animate
 
 
 class StepDialog(QDialog):
@@ -123,53 +98,20 @@ class StepDialog(QDialog):
         self.accept()
 
 
-class RunDialog(QDialog):
-    """Options asked right before a run."""
-
-    def __init__(self, flow, parent=None):
-        super().__init__(parent)
-        self.flow = flow
-        self.setWindowTitle(f"Run — {flow.name}")
-        form = QFormLayout()
-        self.max_items = QSpinBox()
-        self.max_items.setRange(1, 100000)
-        self.max_items.setValue(flow.run.max_items)
-        self.maximize = QCheckBox("Maximise the target window before starting")
-        self.maximize.setChecked(flow.run.maximize_window)
-        form.addRow("Process at most", self.max_items)
-        form.addRow("", self.maximize)
-        hint = QLabel("Don't touch the mouse while it runs. Press <b>F12</b> at any time to stop.")
-        hint.setWordWrap(True)
-        buttons = QDialogButtonBox()
-        buttons.addButton("Start", QDialogButtonBox.AcceptRole)
-        buttons.addButton(QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self._ok)
-        buttons.rejected.connect(self.reject)
-        lay = QVBoxLayout(self)
-        lay.addLayout(form)
-        lay.addWidget(hint)
-        lay.addWidget(buttons)
-
-    def _ok(self):
-        self.flow.run.max_items = self.max_items.value()
-        self.flow.run.maximize_window = self.maximize.isChecked()
-        self.accept()
-
-
 RELOCATE = "relocate"
 _PROBLEM_BUTTONS = {
-    engine.ANCHOR_MISSING: [("Retry", engine.RETRY), ("Show where it is…", RELOCATE), ("Cancel", engine.STOP)],
-    engine.ROW_OFFSCREEN: [("Retry", engine.RETRY), ("Show where it is…", RELOCATE), ("Stop", engine.STOP)],
-    engine.STEP_MISSING: [("Retry step", engine.RETRY), ("Stop", engine.STOP)],
-    engine.STEP_AMBIGUOUS: [("Retry step", engine.RETRY), ("Stop", engine.STOP)],
+    engine.ANCHOR_MISSING: [("Try again", engine.RETRY), ("Show where it is", RELOCATE), ("Cancel", engine.STOP)],
+    engine.ROW_OFFSCREEN: [("Try again", engine.RETRY), ("Show where it is", RELOCATE), ("Stop", engine.STOP)],
+    engine.STEP_MISSING: [("Try again", engine.RETRY), ("Stop", engine.STOP)],
+    engine.STEP_AMBIGUOUS: [("Try again", engine.RETRY), ("Stop", engine.STOP)],
     engine.LIST_UNCHANGED: [("Wait again", engine.RETRY), ("Stop", engine.STOP)],
     engine.USER_MOUSE: [("Continue", engine.RETRY), ("Stop", engine.STOP)],
 }
 _PROBLEM_HELP = {
-    engine.ANCHOR_MISSING: "Make sure the window with the list is visible and not covered, then retry.",
-    engine.ROW_OFFSCREEN: "The window may have moved or shrunk. Retry, or mark the list again.",
-    engine.STEP_MISSING: "Nothing has been clicked since. Bring the expected window to the front and retry.",
-    engine.STEP_AMBIGUOUS: "Several places look the same, so nothing was clicked. Retry or record the step again.",
+    engine.ANCHOR_MISSING: "Make sure the window with the list is visible and not covered, then try again.",
+    engine.ROW_OFFSCREEN: "The window may have moved or shrunk. Try again, or mark the list again.",
+    engine.STEP_MISSING: "Nothing has been clicked since. Bring the expected window to the front and try again.",
+    engine.STEP_AMBIGUOUS: "Several places look the same, so nothing was clicked. Try again or record the step again.",
     engine.LIST_UNCHANGED: "The first item is still there, so it won't be processed twice. "
                            "If the list needs a refresh, add a 'Press key F5' step.",
     engine.USER_MOUSE: "Put the mouse down and choose Continue when you are ready.",
@@ -177,38 +119,72 @@ _PROBLEM_HELP = {
 
 
 class ProblemDialog(QDialog):
-    """'What I was looking for' vs 'What I see now', with concrete actions. self.answer holds the choice."""
+    """Alert card: 'Looking for' vs 'On screen now', with concrete actions. self.answer holds the choice."""
 
     def __init__(self, problem: engine.Problem, parent=None):
-        super().__init__(parent, Qt.WindowStaysOnTopHint)
+        super().__init__(parent, Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint | Qt.Dialog)
         self.setWindowTitle("AutoClicker Visual — paused")
+        self.setAttribute(Qt.WA_TranslucentBackground)
         self.answer = engine.STOP
-        lay = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(24, 20, 24, 30)  # room for the shadow
+        card = QFrame()
+        card.setObjectName("card")
+        card.setGraphicsEffect(QGraphicsDropShadowEffect(card, blurRadius=44, offset=QPointF(0, 14),
+                                                         color=QColor(15, 22, 40, 80)))
+        outer.addWidget(card)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(22, 22, 22, 18)
+        lay.setSpacing(10)
+        lay.addWidget(WarnIcon(), 0, Qt.AlignHCenter)
         title = QLabel(problem.message)
-        title.setObjectName("title")
+        title.setFont(theme.font(16, QFont.Bold, display=True))
+        title.setAlignment(Qt.AlignCenter)
         title.setWordWrap(True)
         lay.addWidget(title)
         hint = QLabel(_PROBLEM_HELP.get(problem.kind, ""))
+        hint.setObjectName("muted")
+        hint.setAlignment(Qt.AlignCenter)
         hint.setWordWrap(True)
         lay.addWidget(hint)
         if problem.expected is not None or problem.screen is not None:
-            grid = QGridLayout()
-            if problem.expected is not None:
-                box = QGroupBox("What I was looking for")
-                QVBoxLayout(box).addWidget(image_label(problem.expected, 320, 240))
-                grid.addWidget(box, 0, 0)
-            if problem.screen is not None:
-                box = QGroupBox("What I see now")
-                QVBoxLayout(box).addWidget(image_label(problem.screen, 640, 400))
-                grid.addWidget(box, 0, 1)
-            lay.addLayout(grid)
-        row = QHBoxLayout()
-        row.addStretch()
-        for text, answer in _PROBLEM_BUTTONS.get(problem.kind, [("Stop", engine.STOP)]):
-            btn = QPushButton(text)
+            row = QHBoxLayout()
+            row.setSpacing(12)
+            for img, text, w, h in ((problem.expected, "Looking for", 220, 150), (problem.screen, "On screen now", 420, 260)):
+                if img is None:
+                    continue
+                col = QVBoxLayout()
+                col.setSpacing(5)
+                pic = QLabel()
+                pic.setObjectName("thumb")
+                pic.setAlignment(Qt.AlignCenter)
+                pic.setPixmap(fit_pixmap(img, w, h))
+                cap = QLabel(text)
+                cap.setObjectName("hint")
+                col.addWidget(pic)
+                col.addWidget(cap)
+                col.addStretch(1)
+                row.addLayout(col)
+            lay.addSpacing(4)
+            lay.addLayout(row)
+        lay.addSpacing(6)
+        buttons = QHBoxLayout()
+        buttons.setSpacing(8)
+        choices = _PROBLEM_BUTTONS.get(problem.kind, [("Stop", engine.STOP)])
+        for text, answer in reversed(choices):  # the main action goes last, on the right
+            btn = PillButton(text, "filled" if answer == engine.RETRY else "plain")
             btn.clicked.connect(lambda _=False, a=answer: self._answer(a))
-            row.addWidget(btn)
-        lay.addLayout(row)
+            buttons.addWidget(btn, 1)
+        lay.addLayout(buttons)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        geo = (self.screen() or QApplication.primaryScreen()).availableGeometry()
+        self.adjustSize()
+        end = QPoint(geo.center().x() - self.width() // 2, geo.center().y() - self.height() // 2)
+        self.setWindowOpacity(0.0)
+        animate(self, "fade", 0.0, 1.0, 250, theme.SMOOTH, self.setWindowOpacity)
+        animate(self, "rise", 14.0, 0.0, 550, theme.SPRING, lambda v: self.move(end.x(), end.y() + round(v)))
 
     def _answer(self, answer: str):
         self.answer = answer
@@ -217,6 +193,7 @@ class ProblemDialog(QDialog):
 
 def _dspin(value, lo, hi, step, decimals, suffix=""):
     spin = QDoubleSpinBox()
+    spin.setButtonSymbols(QDoubleSpinBox.NoButtons)
     spin.setRange(lo, hi)
     spin.setSingleStep(step)
     spin.setDecimals(decimals)
@@ -227,6 +204,7 @@ def _dspin(value, lo, hi, step, decimals, suffix=""):
 
 def _ispin(value):
     spin = QSpinBox()
+    spin.setButtonSymbols(QSpinBox.NoButtons)
     spin.setRange(-10000, 10000)
     spin.setValue(value)
     return spin

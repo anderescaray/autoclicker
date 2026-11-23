@@ -16,7 +16,7 @@ AutoClicker Visual: a Windows desktop app (Python + PySide6) that repeats a reco
 - `src/acv/vision.py`: matching (`locate` returns found / missing / ambiguous), `crop_unique` and row emptiness.
 - `src/acv/desktop.py`: the only place for Windows/OS specifics (DPI awareness, monitors, capture, input).
 - `src/acv/recorder.py`: global mouse/keyboard listeners → steps.
-- `src/acv/ui/`: windows and dialogs. Long work runs off the GUI thread and talks to it through signals.
+- `src/acv/ui/`: windows and dialogs. Long work runs off the GUI thread and talks to it through signals. The look follows `docs/design/ui-spec.md`: every colour, radius, font and timing lives in `ui/theme.py`, and custom-painted, animated widgets live in `ui/widgets.py`.
 - `src/acv/model.py`, `src/acv/storage.py`: dataclasses with versioned JSON, and the per-user data folders.
 
 ## Commands

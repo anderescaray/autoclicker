@@ -12,8 +12,8 @@ PAGES = [
      "Nothing is sent anywhere: it all runs on this computer.<br><br>"
      "It never clicks blindly: if something isn't where it expects, it stops and asks you."),
     ("1 · Choose the monitor",
-     "If you have several monitors, pick the one where the list is shown. "
-     "AutoClicker Visual only looks at and clicks on that monitor."),
+     "Create a flow with the <b>+</b> button. If you have several monitors, pick the one where the list is "
+     "shown under <b>Screen</b>. AutoClicker Visual only looks at and clicks on that monitor."),
     ("2 · Mark the list",
      "Open the app with the list and click <b>Mark anchor and first row</b>. The screen freezes:<br><br>"
      "• First drag around the <b>anchor</b>: something near the list that always looks the same, "
@@ -22,15 +22,15 @@ PAGES = [
      "The live indicator then tells you if the anchor is found and if the first row has an item. "
      "When the first row is empty, the work is done."),
     ("3 · Record the steps",
-     "Click <b>● Record</b> and process <b>one item</b> by hand, as usual. "
+     "Click <b>Record</b> and process <b>one item</b> by hand, as usual. "
      "Each click is saved with a small picture of what you clicked, so it can be found again later, "
-     "even if the window moves. Press <b>Finish</b> on the floating bar when the item is done.<br><br>"
+     "even if the window moves. Press <b>Finish</b> on the black bar at the top when the item is done.<br><br>"
      "Between steps it automatically waits for the next thing to appear, so you don't need to hurry."),
     ("4 · Test it",
      "<b>Test step</b> and <b>Simulate</b> show where it would click, without clicking.<br>"
      "<b>Run 1 item</b> processes just the first item for real, so you can check the result."),
     ("5 · Run",
-     "Choose the flow and click <b>▶ Run</b>. A small panel shows the progress.<br><br>"
+     "Choose the flow and click <b>Run</b>. A small panel shows the progress.<br><br>"
      "<b>Tips</b><br>"
      "• Press <b>F12</b> at any time to stop (or move the mouse to a corner of the screen).<br>"
      "• Don't use the mouse during a run: if you move it, the run pauses and asks you.<br>"

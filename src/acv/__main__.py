@@ -41,7 +41,10 @@ def main() -> None:
     app.setQuitOnLastWindowClosed(False)
     resources = Path(acv.__file__).resolve().parent / "resources"  # also right inside the PyInstaller bundle
     app.setWindowIcon(QIcon(str(resources / "icon.png")))
-    app.setStyleSheet((resources / "style.qss").read_text(encoding="utf-8"))
+    from acv.ui import theme
+    theme.set_animations(desktop.animations_enabled())
+    app.setFont(theme.font())
+    app.setStyleSheet(theme.stylesheet())
 
     def on_error(exc_type, exc, tb):
         log.error("Unexpected error:\n%s", "".join(traceback.format_exception(exc_type, exc, tb)))

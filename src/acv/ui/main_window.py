@@ -1,173 +1,264 @@
-"""Main window: the list of flows and what you can do with them."""
+"""Main window: flows in the sidebar, the editor on the right (docs/design/ui-spec.md §1)."""
 
 from __future__ import annotations
 
+import datetime
 import logging
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QAction, QDesktopServices
+from PySide6.QtGui import QDesktopServices, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QApplication, QFileDialog, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QMainWindow, QMessageBox, QPushButton,
-    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QApplication, QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QMainWindow, QMenu, QMessageBox, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import APP_NAME, __version__, storage
-from ..desktop import list_monitors
-from ..model import IMAGE_STEPS, Flow
-from .dialogs import RunDialog
-from .flow_editor import FlowEditor
+from .. import APP_NAME, __version__, engine, storage
+from ..model import Flow
+from .editor_panel import EditorPanel, safe_monitors
 from .run_controller import RunController
 from .tutorial import Tutorial
+from .widgets import ROLE_FLAG, ROLE_SUB, FlowDelegate, PillButton, RoundButton, Snackbar
 
 log = logging.getLogger(__name__)
+
+
+def _when(flow: Flow, today: datetime.date | None = None) -> str:
+    """'6 steps · ran today, 09:42' / 'ran yesterday' / 'ran 23 Nov' / 'not run yet'."""
+    n = len(flow.steps)
+    steps = f"{n} step{'s' if n != 1 else ''}"
+    if not flow.last_run:
+        return f"{steps} · not run yet"
+    try:
+        when = datetime.datetime.strptime(flow.last_run.split(" · ")[0], "%Y-%m-%d %H:%M")
+    except ValueError:
+        return f"{steps} · ran before"
+    today = today or datetime.date.today()
+    if when.date() == today:
+        return f"{steps} · ran today, {when:%H:%M}"
+    if (today - when.date()).days == 1:
+        return f"{steps} · ran yesterday"
+    return f"{steps} · ran {when.day} {when:%b}"
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(APP_NAME)
-        self.resize(820, 520)
-        self.editor: FlowEditor | None = None
+        self.resize(1200, 740)
+        self.setMinimumSize(1060, 640)
         self.run_controller = RunController(self)
-        self.run_controller.finished.connect(lambda _: self.refresh())
+        self.run_controller.finished.connect(self._run_finished)
 
         central = QWidget()
-        lay = QVBoxLayout(central)
-        title = QLabel("Your flows")
-        title.setObjectName("heading")
-        lay.addWidget(title)
-        self.table = QTreeWidget()
-        self.table.setHeaderLabels(["Name", "Steps", "Last run"])
-        self.table.setRootIsDecorated(False)
-        self.table.header().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.table.itemDoubleClicked.connect(lambda *_: self.edit_flow())
-        self.table.itemSelectionChanged.connect(self._update_buttons)
-        lay.addWidget(self.table, 1)
-        self.empty_hint = QLabel("No flows yet. Click <b>New</b> to create one, or open <b>Help → Tutorial</b>.")
-        self.empty_hint.setAlignment(Qt.AlignCenter)
-        lay.addWidget(self.empty_hint)
+        lay = QHBoxLayout(central)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        lay.addWidget(self._build_sidebar())
 
-        row = QHBoxLayout()
-        self.buttons = {}
-        for key, text, slot in (("new", "New", self.new_flow), ("edit", "Edit", self.edit_flow),
-                                ("run", "▶ Run", self.run_flow), ("dup", "Duplicate", self.duplicate_flow),
-                                ("import", "Import…", self.import_flow), ("export", "Export…", self.export_flow),
-                                ("delete", "Delete", self.delete_flow)):
-            b = QPushButton(text)
-            b.clicked.connect(slot)
-            self.buttons[key] = b
-            row.addWidget(b)
-            if key == "run":
-                b.setObjectName("primary")
-            if key == "dup":
-                row.addStretch()
-        lay.addLayout(row)
+        self.stack = QStackedWidget()
+        self.empty = self._build_empty()
+        self.editor = EditorPanel(self.run_controller)
+        self.editor.saved.connect(lambda: self.refresh(self.editor.flow.id))
+        self.editor.changed.connect(lambda: self._mark_dirty(self.editor.is_dirty()))
+        self.editor.notify.connect(lambda text: self.snackbar.show_message(text))
+        self.stack.addWidget(self.empty)
+        self.stack.addWidget(self.editor)
+        lay.addWidget(self.stack, 1)
         self.setCentralWidget(central)
+        self.snackbar = Snackbar(central)
 
-        help_menu = self.menuBar().addMenu("&Help")
-        for text, slot in (("Tutorial", self.show_tutorial), ("Open logs folder", self.open_logs),
-                           (f"About {APP_NAME}", self.about)):
-            action = QAction(text, self)
-            action.triggered.connect(slot)
-            help_menu.addAction(action)
+        QShortcut(QKeySequence.Save, self, activated=lambda: self.editor.flow and self.editor.save())
+        QShortcut(QKeySequence.New, self, activated=self.new_flow)
         self.refresh()
+
+    # ---------- layout ----------
+
+    def _build_sidebar(self) -> QWidget:
+        side = QWidget()
+        side.setObjectName("sidebar")
+        side.setAttribute(Qt.WA_StyledBackground)
+        side.setFixedWidth(248)
+        col = QVBoxLayout(side)
+        col.setContentsMargins(10, 14, 10, 12)
+        col.setSpacing(8)
+        top = QHBoxLayout()
+        top.setContentsMargins(8, 0, 2, 0)
+        title = QLabel("Flows")
+        title.setObjectName("sideTitle")
+        top.addWidget(title)
+        top.addStretch(1)
+        add = RoundButton("+", "New flow or import")
+        menu = QMenu(add)
+        menu.addAction("New flow…", self.new_flow)
+        menu.addAction("Import…", self.import_flow)
+        add.setMenu(menu)
+        top.addWidget(add)
+        col.addLayout(top)
+        self.search = QLineEdit()
+        self.search.setObjectName("search")
+        self.search.setPlaceholderText("Search")
+        self.search.setClearButtonEnabled(True)
+        self.search.textChanged.connect(self._filter)
+        col.addWidget(self.search)
+        self.flows = QListWidget()
+        self.flows.setItemDelegate(FlowDelegate(self.flows))
+        self.flows.setMouseTracking(True)
+        self.flows.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self.flows.currentItemChanged.connect(self._select)
+        self.flows.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.flows.customContextMenuRequested.connect(self._flow_menu)
+        col.addWidget(self.flows, 1)
+        foot = QHBoxLayout()
+        foot.setContentsMargins(8, 0, 2, 0)
+        hint = QLabel("<b>F12</b> stops any run")
+        hint.setObjectName("hint")
+        foot.addWidget(hint, 1)
+        helpb = RoundButton("?", "Help")
+        hm = QMenu(helpb)
+        hm.addAction("Tutorial", self.show_tutorial)
+        hm.addAction("Open logs folder", self.open_logs)
+        hm.addSeparator()
+        hm.addAction(f"About {APP_NAME}", self.about)
+        helpb.setMenu(hm)
+        foot.addWidget(helpb)
+        col.addLayout(foot)
+        return side
+
+    def _build_empty(self) -> QWidget:
+        w = QWidget()
+        w.setObjectName("emptyState")
+        w.setAttribute(Qt.WA_StyledBackground)
+        col = QVBoxLayout(w)
+        col.addStretch(1)
+        icon = QLabel()
+        icon.setPixmap(QApplication.windowIcon().pixmap(72, 72) if not QApplication.windowIcon().isNull()
+                       else QIcon().pixmap(1, 1))
+        icon.setAlignment(Qt.AlignCenter)
+        title = QLabel("No flows yet")
+        title.setObjectName("title")
+        title.setAlignment(Qt.AlignCenter)
+        text = QLabel("A flow repeats the clicks you do for one item of a list,\nfor every item, until the list is empty.")
+        text.setObjectName("muted")
+        text.setAlignment(Qt.AlignCenter)
+        btn = PillButton("New flow", "filled", large=True)
+        btn.clicked.connect(self.new_flow)
+        for x in (icon, title, text):
+            col.addWidget(x)
+        col.addSpacing(10)
+        col.addWidget(btn, 0, Qt.AlignHCenter)
+        col.addStretch(1)
+        return w
 
     # ---------- list ----------
 
     def refresh(self, select_id: str | None = None):
-        current = select_id or (self.current().id if self.current() else None)
-        self.table.clear()
+        current = select_id or self.current_id()
+        self.flows.blockSignals(True)
+        self.flows.clear()
         for flow in storage.list_flows():
-            item = QTreeWidgetItem([flow.name, str(len(flow.steps)), flow.last_run or "Never"])
-            item.setData(0, Qt.UserRole, flow.id)
-            self.table.addTopLevelItem(item)
+            if self.editor.flow is not None and flow.id == self.editor.flow.id:
+                flow = self.editor.flow  # show live edits (name, steps)
+            item = QListWidgetItem(flow.name)
+            item.setData(Qt.UserRole, flow.id)
+            item.setData(ROLE_SUB, _when(flow))
+            item.setData(ROLE_FLAG, self.editor.flow is flow and self.editor.is_dirty())
+            self.flows.addItem(item)
             if flow.id == current:
-                self.table.setCurrentItem(item)
-        if self.table.currentItem() is None and self.table.topLevelItemCount():
-            self.table.setCurrentItem(self.table.topLevelItem(0))
-        self.empty_hint.setVisible(self.table.topLevelItemCount() == 0)
-        self._update_buttons()
+                self.flows.setCurrentItem(item)
+        if self.flows.currentItem() is None and self.flows.count():
+            self.flows.setCurrentRow(0)
+        self.flows.blockSignals(False)
+        self._filter(self.search.text())
+        self._show_current()
 
-    def current(self) -> Flow | None:
-        item = self.table.currentItem()
+    def current_id(self) -> str | None:
+        item = self.flows.currentItem()
+        return item.data(Qt.UserRole) if item else None
+
+    def _filter(self, text: str):
+        text = text.strip().lower()
+        for i in range(self.flows.count()):
+            item = self.flows.item(i)
+            item.setHidden(bool(text) and text not in item.text().lower())
+
+    def _show_current(self):
+        flow_id = self.current_id()
+        if flow_id is None:
+            self.editor.flow = None
+            self.stack.setCurrentWidget(self.empty)
+            return
+        self.stack.setCurrentWidget(self.editor)
+        if self.editor.flow is None or self.editor.flow.id != flow_id:
+            try:
+                self.editor.load(storage.load_flow(flow_id))
+            except Exception:
+                log.exception("Cannot load flow")
+                QMessageBox.warning(self, "Cannot open flow", "This flow could not be read. See the log for details.")
+
+    def _select(self, item, previous):
+        if item is None:
+            return
+        if self.editor.flow is not None and item.data(Qt.UserRole) != self.editor.flow.id:
+            if not self.editor.maybe_save():
+                self.flows.blockSignals(True)
+                self.flows.setCurrentItem(previous)
+                self.flows.blockSignals(False)
+                return
+            self.refresh(item.data(Qt.UserRole))
+            return
+        self._show_current()
+
+    def _mark_dirty(self, dirty: bool):
+        for i in range(self.flows.count()):
+            item = self.flows.item(i)
+            if self.editor.flow and item.data(Qt.UserRole) == self.editor.flow.id:
+                item.setData(ROLE_FLAG, dirty)
+                item.setText(self.editor.flow.name)
+                item.setData(ROLE_SUB, _when(self.editor.flow))
+
+    def _flow_menu(self, pos):
+        item = self.flows.itemAt(pos)
         if not item:
-            return None
-        try:
-            return storage.load_flow(item.data(0, Qt.UserRole))
-        except Exception:
-            log.exception("Cannot load flow")
-            QMessageBox.warning(self, "Cannot open flow", "This flow could not be read. See the log for details.")
-            return None
-
-    def _update_buttons(self):
-        has = self.table.currentItem() is not None
-        for key in ("edit", "run", "dup", "export", "delete"):
-            self.buttons[key].setEnabled(has)
+            return
+        self.flows.setCurrentItem(item)
+        if self.current_id() != item.data(Qt.UserRole):
+            return  # the user cancelled leaving unsaved changes
+        menu = QMenu(self)
+        menu.addAction("Rename…", self.editor.rename)
+        menu.addAction("Duplicate…", self.duplicate_flow)
+        menu.addAction("Export…", self.export_flow)
+        menu.addSeparator()
+        menu.addAction("Delete…", self.delete_flow)
+        menu.exec(self.flows.viewport().mapToGlobal(pos))
 
     # ---------- actions ----------
 
     def new_flow(self):
+        if self.editor.flow is not None and not self.editor.maybe_save():
+            return
         name, ok = QInputDialog.getText(self, "New flow", "Name of the flow (e.g. 'Approve requests'):")
         if not ok or not name.strip():
             return
         flow = Flow(name=name.strip())
-        monitors = list_monitors()
-        if len(monitors) == 1:
+        monitors = safe_monitors()
+        if monitors:
             flow.monitor = monitors[0]
-        self._open_editor(flow, is_new=True)
-        if len(monitors) > 1:
-            self.editor.choose_monitor()
-
-    def edit_flow(self):
-        flow = self.current()
-        if flow:
-            self._open_editor(flow)
-
-    def _open_editor(self, flow: Flow, is_new: bool = False):
-        self.editor = FlowEditor(flow, self.run_controller, is_new)
-        self.editor.saved.connect(lambda: self.refresh(flow.id))
-        self.editor.closed.connect(self._editor_closed)
-        self.setEnabled(False)  # one thing at a time: no deleting a flow while it is being edited
-        self.editor.show()
-
-    def _editor_closed(self):
-        self.editor = None
-        self.setEnabled(True)
-        self.refresh()
-
-    def run_flow(self):
-        flow = self.current()
-        if not flow:
-            return
-        if not flow.is_ready():
-            QMessageBox.information(self, "Not ready", "This flow needs an anchor, a first row and at least one "
-                                                       "step. Open it with Edit first.")
-            return
-        if not RunDialog(flow, self).exec():
-            return
-        try:
-            names = {flow.anchor_image, flow.first_row.empty_sample}
-            names |= {s.image for s in flow.steps if s.type in IMAGE_STEPS}
-            images = {n: storage.load_flow_image(flow, n) for n in names if n}
-        except (OSError, ValueError):
-            log.exception("Missing flow image")
-            QMessageBox.warning(self, "Flow damaged", "Some images of this flow are missing. Record it again.")
-            return
-        storage.save_flow(flow)  # keep the run options chosen in the dialog
-        self.run_controller.start(flow, images, parent=self)
+        storage.save_flow(flow)
+        self.refresh(flow.id)
+        self.snackbar.show_message("Flow created · now mark the list")
 
     def duplicate_flow(self):
-        flow = self.current()
-        if not flow:
+        flow = self.editor.flow
+        if not flow or not self.editor.maybe_save():
             return
         name, ok = QInputDialog.getText(self, "Duplicate", "Name of the copy:", text=f"{flow.name} (copy)")
         if ok and name.strip():
             self.refresh(storage.duplicate_flow(flow, name.strip()).id)
 
     def import_flow(self):
+        if self.editor.flow is not None and not self.editor.maybe_save():
+            return
         path, _ = QFileDialog.getOpenFileName(self, "Import flow", "", f"Flows (*{storage.EXPORT_EXT})")
         if not path:
             return
@@ -178,30 +269,36 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Import failed", f"This file could not be imported.\n\n{e}")
             return
         self.refresh(flow.id)
-        QMessageBox.information(self, "Imported", f"Imported '{flow.name}'. Open it with Edit and check the "
-                                                  "monitor and the steps before running it on this computer.")
+        self.snackbar.show_message(f"Imported “{flow.name}” · check the monitor and steps")
 
     def export_flow(self):
-        flow = self.current()
-        if not flow:
+        flow = self.editor.flow
+        if not flow or not self.editor.maybe_save():
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export flow", f"{flow.name}{storage.EXPORT_EXT}",
                                               f"Flows (*{storage.EXPORT_EXT})")
         if path:
             storage.export_flow(flow, Path(path))
+            self.snackbar.show_message("Exported")
 
     def delete_flow(self):
-        flow = self.current()
+        flow = self.editor.flow
         if flow and QMessageBox.question(self, "Delete flow",
-                                         f"Delete '{flow.name}'? This cannot be undone.") == QMessageBox.Yes:
+                                         f"Delete “{flow.name}”? This cannot be undone.") == QMessageBox.Yes:
             storage.delete_flow(flow.id)
+            self.editor.flow = None
             self.refresh()
+
+    def _run_finished(self, result: engine.RunResult):
+        self.editor.after_run()
+        self.refresh(self.editor.flow.id if self.editor.flow else None)
+        if result.status in (engine.FINISHED, engine.LIMIT):
+            self.snackbar.show_message(result.message)
 
     # ---------- help ----------
 
     def show_tutorial(self):
-        tutorial = Tutorial(self)
-        result = tutorial.exec()
+        result = Tutorial(self).exec()
         settings = storage.load_settings()
         settings["tutorial_seen"] = True
         storage.save_settings(settings)
@@ -220,10 +317,9 @@ class MainWindow(QMainWindow):
                           "Press <b>F12</b> at any time to stop a run.<br><br>MIT License")
 
     def closeEvent(self, e):
-        if self.editor is not None:
-            self.editor.close()
-            if self.editor is not None:  # the user cancelled closing the editor
-                e.ignore()
-                return
+        if self.editor.flow is not None and not self.editor.maybe_save():
+            e.ignore()
+            return
+        self.editor.shutdown()
         super().closeEvent(e)
         QApplication.quit()
