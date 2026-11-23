@@ -65,13 +65,14 @@ class DemoWindow(QMainWindow):
         self.setWindowTitle("Demo Inbox")
         self.resize(640, 420)
         central = QWidget()
-        central.setStyleSheet("background: #ffffff;")
+        central.setStyleSheet("background: #ffffff; color: #1f2937;")
         lay = QVBoxLayout(central)
         header = QLabel("Pending requests")
         header.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff; background: #2f5d8a; padding: 6px;")
         lay.addWidget(header)
         self.list = QListWidget()
-        self.list.setStyleSheet("QListWidget { border: none; font-family: Consolas, monospace; font-size: 13px; }"
+        self.list.setStyleSheet("QListWidget { border: none; font-family: Consolas, monospace; font-size: 13px;"
+                                " color: #1f2937; background: #ffffff; }"
                                 "QListWidget::item { padding: 4px; }")
         self.list.addItems(items)
         lay.addWidget(self.list, 1)
@@ -100,6 +101,7 @@ def main() -> None:
     parser.add_argument("--delay", type=float, default=0.3, help="seconds before a processed item disappears")
     args = parser.parse_args()
     app = QApplication(sys.argv)
+    app.styleHints().setColorScheme(Qt.ColorScheme.Light)  # readable even with Windows in dark mode
     win = DemoWindow(make_items(args.items), args.delay)
     win.show()
     sys.exit(app.exec())
