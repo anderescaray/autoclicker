@@ -74,10 +74,10 @@ flowchart LR
 ## Get started
 
 1. **Install.** Run `AutoClickerVisual-Setup-<version>.exe`. It installs for your user only, with no administrator rights. SmartScreen may warn about an unsigned app the first time: choose **More info → Run anyway**.
-2. **Create a flow.** Click **+** → **New flow**. Under **Screen**, pick the monitor where the list is shown.
-3. **Mark the list.** Click **Mark anchor and first row**. The screen freezes. Drag around the list's header, then around the first row. The live check confirms it can see them.
+2. **Create a flow.** Click **+** → **New flow**. There's no monitor to choose: the list is found on whichever screen shows it.
+3. **Mark the list.** Click **Mark anchor and first row**. Every screen freezes: on the one showing the list, drag around its header, then around the first row. The live check confirms it can see them.
 4. **Record.** Press **Record**, process one item by hand, then press **Finish** on the capsule.
-5. **Check, then run.** Use **Simulate** and **Run 1 item** to check, then **Run**.
+5. **Check, then run.** Use **Simulate** and **Run 1 item** to check, then **Run**. AutoClicker Visual steps aside and shows a small panel: arrange the list on screen, then press **Start**.
 
 To practise first, try the included demo app, a list whose items each need several clicks in successive windows:
 

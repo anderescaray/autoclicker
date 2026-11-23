@@ -19,9 +19,12 @@ class RegionPicker(QWidget):
     Esc goes back one rectangle (or cancels on the first one). Rectangles are in frame pixels.
     """
 
-    def __init__(self, frame: np.ndarray, monitor: MonitorInfo, prompts: list[str]):
+    def __init__(self, frame: np.ndarray, monitor: MonitorInfo, prompts: list[str], group: _Group | None = None):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_DeleteOnClose)
+        self.monitor = monitor
+        self.group = group
+        self._silent = False
         self.frame = frame
         self.image = to_qimage(frame)
         self.prompts = prompts
@@ -29,7 +32,7 @@ class RegionPicker(QWidget):
         self.result: list[Rect] | None = None
         self._start: QPoint | None = None
         self._current: QRect | None = None
-        self._loop = QEventLoop()
+        self._loop = group.loop if group else QEventLoop()
         self.setCursor(Qt.CrossCursor)
         self.setMouseTracking(True)
         place_on_monitor(self, monitor)
@@ -59,6 +62,8 @@ class RegionPicker(QWidget):
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
+            if self.group:
+                self.group.claim(self)  # the list is on this monitor: close the others
             self._start = e.position().toPoint()
             self._current = QRect(self._start, self._start)
         elif e.button() == Qt.RightButton:
@@ -95,11 +100,14 @@ class RegionPicker(QWidget):
 
     def _finish(self, result):
         self.result = result
+        if self.group:
+            self.group.finish(self)
         self.close()
         self._loop.quit()
 
     def closeEvent(self, e):
-        self._loop.quit()
+        if not self._silent:
+            self._loop.quit()
         super().closeEvent(e)
 
     def paintEvent(self, _):
@@ -144,27 +152,65 @@ class RegionPicker(QWidget):
                    "Esc or right-click: go back")
 
 
+class _Group:
+    """Pickers shown on several monitors at once; the first one the user drags on wins."""
+
+    def __init__(self):
+        self.loop = QEventLoop()
+        self.pickers: list[RegionPicker] = []
+
+    def claim(self, winner: RegionPicker) -> None:
+        for p in self.pickers:
+            if p is not winner:
+                p._silent = True
+                p.close()
+        self.pickers = [winner]
+
+    def finish(self, picker: RegionPicker) -> None:
+        if picker.result is None:  # cancelled: close every picker
+            self.claim(picker)
+
+
 def pick_regions(frame: np.ndarray, monitor: MonitorInfo, prompts: list[str]) -> list[Rect] | None:
     return RegionPicker(frame, monitor, prompts).exec()
 
 
-def mark_list(frame: np.ndarray, monitor: MonitorInfo, parent=None):
-    """Ask for the anchor and the first row on `frame`.
+def pick_regions_anywhere(frames: list[tuple[MonitorInfo, np.ndarray]], prompts: list[str]):
+    """Show a picker on every monitor. Returns (monitor, frame, rects) for the one used, or None."""
+    if len(frames) == 1:
+        mon, frame = frames[0]
+        rects = pick_regions(frame, mon, prompts)
+        return (mon, frame, rects) if rects else None
+    group = _Group()
+    group.pickers = [RegionPicker(frame, mon, prompts, group) for mon, frame in frames]
+    for p in group.pickers:
+        p.show()
+        p.raise_()
+    group.pickers[0].activateWindow()
+    group.loop.exec()
+    winner = group.pickers[0] if group.pickers else None
+    if winner is None or not winner.result:
+        return None
+    return winner.monitor, winner.frame, winner.result
 
-    Returns (anchor_image, row_offset, row_image) or None if cancelled.
-    The row offset is relative to the anchor, so it follows the window when it moves.
+
+def mark_list(frames: list[tuple[MonitorInfo, np.ndarray]], parent=None):
+    """Ask for the anchor and the first row, on whichever monitor shows the list.
+
+    `frames` holds one screenshot per monitor. Returns (monitor, anchor_image, row_offset, row_image)
+    or None if cancelled. The row offset is relative to the anchor, so it follows the window when it moves.
     """
     from PySide6.QtWidgets import QMessageBox
 
     from .. import vision
 
-    prompts = ["Drag to mark the ANCHOR — something that always looks the same, e.g. the list's header.",
+    prompts = ["On the screen with the list, drag to mark the ANCHOR — something that never changes, e.g. its header.",
                "Now drag to mark the FIRST ROW of the list (with an item in it, without the header)."]
     while True:
-        rects = pick_regions(frame, monitor, prompts)
-        if not rects:
+        picked = pick_regions_anywhere(frames, prompts)
+        if not picked:
             return None
-        a, r = rects
+        monitor, frame, (a, r) = picked
         anchor = vision.crop(frame, a)
         row = vision.crop(frame, r)
         problem = None
@@ -175,5 +221,5 @@ def mark_list(frame: np.ndarray, monitor: MonitorInfo, parent=None):
         elif vision.row_score(row) < vision.MIN_ROW_SCORE * 2:
             problem = "The first row looks empty. Mark it while it contains an item."
         if problem is None:
-            return anchor, Rect(r.x - a.x, r.y - a.y, r.w, r.h), row
+            return monitor, anchor, Rect(r.x - a.x, r.y - a.y, r.w, r.h), row
         QMessageBox.warning(parent, "Mark again", problem)

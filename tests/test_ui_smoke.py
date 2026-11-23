@@ -7,6 +7,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
+QtCore = pytest.importorskip("PySide6.QtCore")
 
 from acv import engine, storage  # noqa: E402
 from acv.model import CLICK_IMAGE, KEY, Flow, MonitorInfo, Rect, Step  # noqa: E402
@@ -77,8 +78,6 @@ def test_custom_widgets_paint(app):
     from acv.ui.run_controller import RunPanel
     host = QtWidgets.QWidget()
     host.resize(600, 400)
-    seg = widgets.SegmentedControl(["Monitor 1", "Monitor 2"])
-    seg.set_index(1, emit=True)
     sw = widgets.Switch()
     sw.setChecked(True)
     dot = widgets.LiveDot()
@@ -96,7 +95,7 @@ def test_custom_widgets_paint(app):
     panel = RunPanel(Flow(name="Demo"), 5)
     panel.set_progress(2, 1, 6, "Approve")
     for w in (widgets.PillButton("Run", "filled", play=True), widgets.PillButton("Record", dot=True),
-              widgets.RoundButton("+", "New"), seg, sw, dot, ring, snack, steps, widgets.WarnIcon(), bar, panel):
+              widgets.RoundButton("+", "New"), sw, dot, ring, snack, steps, widgets.WarnIcon(), bar, panel):
         assert not w.grab().isNull()
 
 
@@ -126,3 +125,31 @@ def test_last_run_wording():
     assert _when(flow, day) == "1 step · ran today, 09:42"
     assert _when(flow, day + datetime.timedelta(days=1)) == "1 step · ran yesterday"
     assert _when(flow, day + datetime.timedelta(days=5)) == "1 step · ran 23 Nov"
+
+
+def test_marking_on_several_monitors_keeps_the_one_used(app):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+
+    from acv.ui.region_picker import RegionPicker, _Group
+    frame = np.zeros((300, 400, 3), np.uint8)
+    group = _Group()
+    left, right = MonitorInfo(1, 0, 0, 400, 300), MonitorInfo(2, 400, 0, 400, 300)
+    group.pickers = [RegionPicker(frame, left, ["anchor"], group), RegionPicker(frame, right, ["anchor"], group)]
+    for p in group.pickers:
+        p.resize(400, 300)
+        p.show()
+    second = group.pickers[1]
+    QTest.mousePress(second, QtCore.Qt.LeftButton, pos=QPoint(10, 10))
+    assert group.pickers == [second]  # the other monitor's picker closed
+    QTest.mouseMove(second, QPoint(80, 60))
+    QTest.mouseRelease(second, QtCore.Qt.LeftButton, pos=QPoint(80, 60))
+    assert second.result and second.monitor.index == 2
+
+
+def test_run_panel_starts_ready(app):
+    from acv.ui.run_controller import RunPanel
+    panel = RunPanel(Flow(name="Demo"), 5)
+    assert not panel.ready_row.isHidden() and panel.run_row.isHidden()
+    panel.set_running()
+    assert panel.ready_row.isHidden() and not panel.run_row.isHidden()

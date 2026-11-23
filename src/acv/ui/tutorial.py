@@ -11,11 +11,12 @@ PAGES = [
      "It only <b>looks at the screen</b> and moves the mouse and keyboard, exactly like you would. "
      "Nothing is sent anywhere: it all runs on this computer.<br><br>"
      "It never clicks blindly: if something isn't where it expects, it stops and asks you."),
-    ("1 · Choose the monitor",
-     "Create a flow with the <b>+</b> button. If you have several monitors, pick the one where the list is "
-     "shown under <b>Screen</b>. AutoClicker Visual only looks at and clicks on that monitor."),
+    ("1 · Create a flow",
+     "Create a flow with the <b>+</b> button. You don't need to pick a monitor: AutoClicker Visual finds the "
+     "list on whichever screen shows it, even if you move the window later."),
     ("2 · Mark the list",
-     "Open the app with the list and click <b>Mark anchor and first row</b>. The screen freezes:<br><br>"
+     "Open the app with the list and click <b>Mark anchor and first row</b>. The screens freeze; "
+     "use the one that shows the list:<br><br>"
      "• First drag around the <b>anchor</b>: something near the list that always looks the same, "
      "such as its header or title. It is used to find the list even if the window moves.<br>"
      "• Then drag around the <b>first row</b>, while it contains an item.<br><br>"
@@ -30,7 +31,8 @@ PAGES = [
      "<b>Test step</b> and <b>Simulate</b> show where it would click, without clicking.<br>"
      "<b>Run 1 item</b> processes just the first item for real, so you can check the result."),
     ("5 · Run",
-     "Choose the flow and click <b>Run</b>. A small panel shows the progress.<br><br>"
+     "Choose the flow and click <b>Run</b>. AutoClicker Visual steps aside and shows a small panel: "
+     "bring the list into view, then press <b>Start</b>. The panel then shows the progress.<br><br>"
      "<b>Tips</b><br>"
      "• Press <b>F12</b> at any time to stop (or move the mouse to a corner of the screen).<br>"
      "• Don't use the mouse during a run: if you move it, the run pauses and asks you.<br>"
