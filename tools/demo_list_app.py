@@ -90,7 +90,7 @@ class DemoWindow(QMainWindow):
             return
         if ConfirmDialog(self).exec() != QDialog.Accepted:
             return
-        QMessageBox.information(self, "Done", f"{item.split()[0]} approved.")
+        QMessageBox.information(self, "Approved", f"{item.split()[0]} approved.")
         QTimer.singleShot(int(self.delay_s * 1000), lambda: self.list.takeItem(row))
 
 
