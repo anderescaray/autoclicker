@@ -1,0 +1,14 @@
+#!/bin/sh
+# Blocks the commit if the message contains a word from .private/forbidden_words.txt.
+root="$(git rev-parse --show-toplevel)"
+list="$root/.private/forbidden_words.txt"
+[ -f "$list" ] || exit 0
+patterns="$(mktemp)"
+trap 'rm -f "$patterns"' EXIT
+tr -d '\r' < "$list" | grep -v '^[[:space:]]*$' > "$patterns"
+[ -s "$patterns" ] || exit 0
+
+if grep -n -i -F -f "$patterns" "$1"; then
+  echo "commit-msg: forbidden word in commit message. Commit blocked." >&2
+  exit 1
+fi

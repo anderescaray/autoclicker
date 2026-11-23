@@ -1,0 +1,18 @@
+#!/bin/sh
+# Blocks the commit if any staged file (content or path) contains a word from
+# .private/forbidden_words.txt (one word per line, case-insensitive).
+root="$(git rev-parse --show-toplevel)"
+list="$root/.private/forbidden_words.txt"
+[ -f "$list" ] || exit 0
+patterns="$(mktemp)"
+trap 'rm -f "$patterns"' EXIT
+tr -d '\r' < "$list" | grep -v '^[[:space:]]*$' > "$patterns"
+[ -s "$patterns" ] || exit 0
+
+found=0
+if git grep --cached -I -n -i -F -f "$patterns"; then found=1; fi
+if git diff --cached --name-only | grep -i -F -f "$patterns"; then found=1; fi
+if [ "$found" -ne 0 ]; then
+  echo "pre-commit: forbidden word found (see above). Commit blocked." >&2
+  exit 1
+fi
