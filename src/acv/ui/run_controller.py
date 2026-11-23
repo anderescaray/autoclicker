@@ -6,46 +6,67 @@ import datetime
 import logging
 import threading
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QObject, QPointF, Qt, Signal
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QApplication, QHBoxLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget,
+    QApplication, QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QVBoxLayout,
+    QWidget,
 )
 
 from .. import engine, storage, vision
 from ..desktop import HotkeyListener, MssScreen, PynputInput, find_monitor
 from ..model import Flow
-from .common import qscreen_for
+from .common import qscreen_for, show_again, visible_windows
 from .dialogs import RELOCATE, ProblemDialog
 from .region_picker import mark_list
+from . import theme
+from .widgets import PillButton, ProgressRing
 
 log = logging.getLogger(__name__)
 STOP_KEY = "f12"
 
 
 class RunPanel(QWidget):
+    """Floating card with a progress ring, the current step and Stop (F12). Drag it anywhere."""
+
     stop_clicked = Signal()
 
     def __init__(self, flow: Flow, max_items: int):
-        super().__init__(None, Qt.Tool | Qt.WindowStaysOnTopHint)
+        super().__init__(None, Qt.Tool | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         self.setWindowTitle("AutoClicker Visual — running")
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        lay = QVBoxLayout(self)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.max_items = max_items
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(18, 14, 18, 22)  # room for the shadow
+        card = QFrame()
+        card.setObjectName("card")
+        shadow = QGraphicsDropShadowEffect(card, blurRadius=36, offset=QPointF(0, 10), color=QColor(15, 22, 40, 70))
+        card.setGraphicsEffect(shadow)
+        outer.addWidget(card)
+        grid = QGridLayout(card)
+        grid.setContentsMargins(16, 16, 16, 14)
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(4)
+        self.ring = ProgressRing()
+        self.ring.set_progress(0, max_items)
         name = QLabel(flow.name)
-        name.setObjectName("title")
+        name.setFont(theme.font(15, QFont.Bold, display=True))
         self.status = QLabel("Starting…")
-        self.bar = QProgressBar()
-        self.bar.setRange(0, max_items)
-        self.bar.setFormat("%v / %m")
-        stop = QPushButton("Stop (F12)")
-        stop.setObjectName("danger")
-        stop.clicked.connect(self.stop_clicked)
-        lay.addWidget(name)
-        lay.addWidget(self.status)
+        self.status.setObjectName("muted")
+        grid.addWidget(self.ring, 0, 0, 2, 1)
+        grid.addWidget(name, 0, 1, Qt.AlignBottom)
+        grid.addWidget(self.status, 1, 1, Qt.AlignTop)
         row = QHBoxLayout()
-        row.addWidget(self.bar, 1)
+        hint = QLabel("Or push the mouse into a corner")
+        hint.setObjectName("hint")
+        stop = PillButton("Stop · F12", "danger")
+        stop.clicked.connect(self.stop_clicked)
+        row.addWidget(hint, 1)
         row.addWidget(stop)
-        lay.addLayout(row)
-        self.setFixedWidth(380)
+        grid.addLayout(row, 2, 0, 1, 2)
+        self.setFixedWidth(400)
+        self._drag = None
 
     def place(self, work_monitor):
         """Bottom-right of another monitor if there is one, so it never covers the work area."""
@@ -53,12 +74,22 @@ class RunPanel(QWidget):
         others = [s for s in QApplication.screens() if s is not work]
         geo = (others[0] if others else work).availableGeometry()
         self.adjustSize()
-        self.move(geo.right() - self.width() - 24, geo.bottom() - self.height() - 48)
+        self.move(geo.right() - self.width() - 8, geo.bottom() - self.height() - 8)
 
     def set_progress(self, item: int, step: int | None, total: int, label: str):
-        self.bar.setValue(item - 1)
-        self.status.setText(f"Item {item}  ·  step {step + 1}/{total}  ·  {label}" if step is not None
-                            else f"Item {item}")
+        self.ring.set_progress(item - 1, self.max_items)
+        self.status.setText(f"Item {item} · <b style=\"color:{theme.ACCENT_TEXT}\">{label}</b>"
+                            + (f" · step {step + 1} of {total}" if step is not None else ""))
+
+    def mousePressEvent(self, e):
+        self._drag = e.globalPosition().toPoint() - self.pos()
+
+    def mouseMoveEvent(self, e):
+        if self._drag is not None:
+            self.move(e.globalPosition().toPoint() - self._drag)
+
+    def mouseReleaseEvent(self, e):
+        self._drag = None
 
 
 class RunController(QObject):
@@ -103,7 +134,7 @@ class RunController(QObject):
         self.last_problem = None
         self.running = True
 
-        self._hidden = [w for w in QApplication.topLevelWidgets() if w.isVisible()]
+        self._hidden = visible_windows()
         for w in self._hidden:
             w.hide()
         self.panel = RunPanel(flow, self.max_items)
@@ -183,8 +214,7 @@ class RunController(QObject):
         self.running = False
         self.hotkey.stop()
         self.panel.close()
-        for w in self._hidden:
-            w.show()
+        show_again(self._hidden)
         if self.last_problem is not None and self.last_problem.screen is not None:
             stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             path = storage.logs_dir() / f"stop-{stamp}.png"
@@ -194,9 +224,8 @@ class RunController(QObject):
             stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             self.flow.last_run = f"{stamp} · {result.items} item(s) · {result.status}"
             storage.save_flow(self.flow)
-        icon = QMessageBox.Information if result.status == engine.FINISHED else QMessageBox.Warning
-        title = {engine.FINISHED: "Done", engine.LIMIT: "Limit reached"}.get(result.status, "Stopped")
-        box = QMessageBox(icon, title, f"{result.message}\n\nItems processed: {result.items}")
-        box.setWindowFlag(Qt.WindowStaysOnTopHint)
-        box.exec()
-        self.finished.emit(result)
+        self.finished.emit(result)  # finished and limit are shown as a snackbar by the main window
+        if result.status == engine.STOPPED:
+            box = QMessageBox(QMessageBox.Warning, "Stopped", f"{result.message}\n\nItems processed: {result.items}")
+            box.setWindowFlag(Qt.WindowStaysOnTopHint)
+            box.exec()

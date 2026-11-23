@@ -5,11 +5,14 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from PySide6.QtCore import QRect, Qt, QTimer
-from PySide6.QtGui import QColor, QGuiApplication, QImage, QPainter, QPen, QPixmap
+import shiboken6
+from PySide6.QtCore import QPoint, QRectF, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel, QWidget
 
 from ..model import MonitorInfo, Rect
+from . import theme
+from .widgets import animate
 
 
 def to_qimage(bgr: np.ndarray) -> QImage:
@@ -69,7 +72,7 @@ def wait_ms(ms: int) -> None:
 
 
 class HighlightOverlay(QWidget):
-    """Click-through overlay that outlines a rectangle on a monitor for a moment."""
+    """Click-through overlay: a rounded accent outline around a target and a label above it, fading in and out."""
 
     def __init__(self, monitor: MonitorInfo, frame_size: tuple[int, int], rect: Rect | None, text: str,
                  ok: bool = True, ms: int = 1500):
@@ -79,36 +82,82 @@ class HighlightOverlay(QWidget):
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.frame_size, self.rect_, self.text, self.ok = frame_size, rect, text, ok
+        self._o = 0.0
         place_on_monitor(self, monitor)
         self.show()
-        QTimer.singleShot(ms, self.close)
+        setter = lambda v: (setattr(self, "_o", v), self.update())  # noqa: E731
+        animate(self, "fade", 0.0, 1.0, 200, theme.SMOOTH, setter)
+        QTimer.singleShot(ms, self, lambda: animate(self, "fade", self._o, 0.0, 300, theme.SMOOTH, setter,
+                                                     on_done=self.close))
 
     def paintEvent(self, _):
+        t = theme
         p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setOpacity(self._o)
         sx, sy = self.width() / self.frame_size[0], self.height() / self.frame_size[1]
-        color = QColor("#16a34a" if self.ok else "#dc2626")
-        p.setPen(QPen(color, 4))
+        color = t.color(t.ACCENT if self.ok else t.WARN)
+        label_at = QPoint(self.width() // 2, 40)
         if self.rect_:
             r = self.rect_
-            p.drawRect(QRect(int(r.x * sx) - 4, int(r.y * sy) - 4, int(r.w * sx) + 8, int(r.h * sy) + 8))
-        p.setFont(self.font())
-        box = QRect(self.width() // 2 - 260, 30, 520, 44)
-        p.fillRect(box, QColor(20, 20, 20, 220))
+            box = QRectF(r.x * sx - 5, r.y * sy - 5, r.w * sx + 10, r.h * sy + 10)
+            for width, alpha in ((12, 0.10), (7, 0.18)):
+                glow = QColor(color)
+                glow.setAlphaF(alpha)
+                p.setPen(QPen(glow, width))
+                p.drawRoundedRect(box, 8, 8)
+            p.setPen(QPen(color, 3))
+            p.drawRoundedRect(box, 8, 8)
+            label_at = QPoint(round(box.center().x()), max(22, round(box.top()) - 22))
+        p.setFont(t.font(13, QFont.DemiBold))
+        fm = QFontMetrics(p.font())
+        w = fm.horizontalAdvance(self.text) + 28
+        pill = QRectF(label_at.x() - w / 2, label_at.y() - 15, w, 30)
+        pill.moveLeft(max(8, min(pill.left(), self.width() - w - 8)))
+        p.setPen(Qt.NoPen)
+        p.setBrush(t.color(t.SNACK))
+        p.drawRoundedRect(pill, 15, 15)
         p.setPen(QColor("white"))
-        p.drawText(box, Qt.AlignCenter, self.text)
+        p.drawText(pill, Qt.AlignCenter, self.text)
+
+
+def visible_windows() -> list[QWidget]:
+    """Our visible top-level windows, except click-through overlays that close themselves."""
+    return [w for w in QApplication.topLevelWidgets()
+            if w.isVisible() and not w.windowFlags() & Qt.WindowTransparentForInput]
+
+
+def close_overlays() -> None:
+    """Remove highlight overlays at once, so a screenshot never contains them."""
+    for w in QApplication.topLevelWidgets():
+        if isinstance(w, HighlightOverlay) and shiboken6.isValid(w):
+            w.close()
+
+
+def show_again(windows: list[QWidget]) -> None:
+    for w in windows:
+        if shiboken6.isValid(w):  # a window may have been deleted while hidden
+            w.show()
 
 
 class hidden_windows:
     """Context manager: hide our windows so the target app is visible, e.g. for a screenshot."""
 
     def __enter__(self):
-        self.windows = [w for w in QApplication.topLevelWidgets() if w.isVisible()]
+        close_overlays()
+        self.windows = visible_windows()
         for w in self.windows:
             w.hide()
         wait_ms(350)
         return self
 
     def __exit__(self, *exc):
-        for w in self.windows:
-            w.show()
+        show_again(self.windows)
         return False
+
+
+def fit_pixmap(bgr: np.ndarray, w: int, h: int) -> QPixmap:
+    """Pixmap that shows at most w×h logical pixels, sharp on high-DPI screens and never upscaled."""
+    pix = to_pixmap(bgr, 2 * w, 2 * h)
+    pix.setDevicePixelRatio(max(1.0, pix.width() / w, pix.height() / h))
+    return pix

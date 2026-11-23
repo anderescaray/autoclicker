@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Flow editor next to the demo list app: anchor and first row marked, six recorded steps" width="900">
+  <img src="docs/screenshot.png" alt="Main window: flows in the sidebar, the editor with the marked list, options and six recorded steps" width="900">
 </p>
 
 ---
@@ -77,12 +77,12 @@ AutoClicker Visual automates exactly that, for people who don't write scripts:
 
 ## Quick start
 
-1. **New** → give the flow a name.
-2. **Choose** the monitor where the list is shown.
+1. Click **+** → **New flow** and give it a name.
+2. Under **Screen**, pick the monitor where the list is shown.
 3. **Mark anchor and first row.** The screen freezes. Drag around the list's header, then around the first row.
-4. **● Record** → process one item by hand → **Finish**.
+4. **Record** → process one item by hand → **Finish** on the black bar at the top of the screen.
 5. **Simulate** and **Run 1 item** to check it.
-6. **Save**, then **▶ Run** from the main window.
+6. **Run**. It saves the flow first, and a small panel shows the progress.
 
 Want to practise first? Run the included demo app, which shows a list whose items each need several clicks in successive windows:
 
