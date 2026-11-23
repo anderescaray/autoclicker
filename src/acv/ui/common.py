@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 
 import numpy as np
@@ -161,3 +162,24 @@ def fit_pixmap(bgr: np.ndarray, w: int, h: int) -> QPixmap:
     pix = to_pixmap(bgr, 2 * w, 2 * h)
     pix.setDevicePixelRatio(max(1.0, pix.width() / w, pix.height() / h))
     return pix
+
+
+def grab_monitors() -> list[tuple[MonitorInfo, np.ndarray]]:
+    """A screenshot of every monitor (empty if the system can't report them)."""
+    from ..desktop import MssScreen, list_monitors
+    try:
+        return [(m, MssScreen(m).grab()) for m in list_monitors()]
+    except Exception:
+        logging.getLogger(__name__).exception("Cannot capture the monitors")
+        return []
+
+
+def find_on_monitors(template: np.ndarray, confidence: float, prefer: int | None = None):
+    """The monitor where `template` appears exactly once (trying monitor `prefer` first), or None."""
+    from .. import vision
+    shots = grab_monitors()
+    shots.sort(key=lambda mf: mf[0].index != prefer)
+    for mon, frame in shots:
+        if vision.locate(frame, template, confidence)[0] == vision.FOUND:
+            return mon
+    return None

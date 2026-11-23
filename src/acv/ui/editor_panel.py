@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from PySide6.QtCore import QEvent, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QPixmap
@@ -19,21 +20,21 @@ from ..model import (
     Step,
 )
 from ..recorder import Recorder
-from .common import HighlightOverlay, close_overlays, fit_pixmap, hidden_windows, show_again, visible_windows, wait_ms
+from .common import HighlightOverlay, close_overlays, fit_pixmap, grab_monitors, hidden_windows, show_again, visible_windows, wait_ms
 from .dialogs import StepDialog
 from .recording_bar import RecordingBar
 from .region_picker import mark_list, pick_regions
 from .widgets import (
-    ROLE_FLAG, ROLE_OBJ, ROLE_SUB, LiveDot, PillButton, SegmentedControl, StepList, Switch, cell, group,
+    ROLE_FLAG, ROLE_OBJ, ROLE_SUB, LiveDot, PillButton, StepList, Switch, cell, group,
 )
 
 log = logging.getLogger(__name__)
 
 
 class LiveChecker(QThread):
-    """Checks about twice a second whether the anchor is visible and the first row has content."""
+    """About twice a second: is the anchor on any monitor, and does the first row have an item?"""
 
-    status = Signal(object, object)  # anchor found (bool | None), row filled (bool | None)
+    status = Signal(object, object, object)  # anchor found (bool | None), row filled (bool | None), MonitorInfo | None
 
     def __init__(self, editor: EditorPanel):
         super().__init__()
@@ -41,25 +42,32 @@ class LiveChecker(QThread):
         self.last_row = None
 
     def run(self):
-        screen, key = None, None
+        screens: dict = {}
+        monitors, listed_at = [], 0.0
         while not self.isInterruptionRequested():
             try:
                 cfg = self.editor.live_config()
                 if cfg is None:
-                    self.status.emit(None, None)
+                    self.status.emit(None, None, None)
                 else:
-                    mon, anchor, offset, filled_score, empty, confidence = cfg
-                    if key != (mon.left, mon.top, mon.width, mon.height):
-                        screen, key = MssScreen(mon), (mon.left, mon.top, mon.width, mon.height)
-                    frame = screen.grab()
-                    found, a = vision.locate(frame, anchor, confidence)
-                    filled = None
-                    if found == vision.FOUND:
-                        row = vision.crop(frame, vision.row_rect(a, offset))
-                        if row is not None:
-                            self.last_row = row
-                            filled = vision.is_row_filled(row, filled_score, empty)
-                    self.status.emit(found == vision.FOUND, filled)
+                    if time.monotonic() - listed_at > 5:  # monitors can be plugged in or out
+                        monitors, listed_at = safe_monitors(), time.monotonic()
+                    prefer, anchor, offset, filled_score, empty, confidence = cfg
+                    ordered = sorted(monitors, key=lambda m: m.index != prefer)  # last known monitor first
+                    found_on, filled = None, None
+                    for mon in ordered:
+                        key = (mon.left, mon.top, mon.width, mon.height)
+                        screen = screens.get(key) or screens.setdefault(key, MssScreen(mon))
+                        frame = screen.grab()
+                        status, a = vision.locate(frame, anchor, confidence)
+                        if status == vision.FOUND:
+                            found_on = mon
+                            row = vision.crop(frame, vision.row_rect(a, offset))
+                            if row is not None:
+                                self.last_row = row
+                                filled = vision.is_row_filled(row, filled_score, empty)
+                            break
+                    self.status.emit(found_on is not None, filled, found_on)
             except Exception:
                 log.exception("Live check failed")
             self.msleep(500)
@@ -110,7 +118,6 @@ class EditorPanel(QWidget):
         self._saved_state = None
         self._dirty = False
         self.recorder = None
-        self.monitors = []
         self._build()
         self.checker = LiveChecker(self)
         self.checker.status.connect(self._on_live_status)
@@ -159,11 +166,13 @@ class EditorPanel(QWidget):
         lcol = QVBoxLayout(left)
         lcol.setContentsMargins(0, 0, 6, 0)
         lcol.setSpacing(8)
-        self.monitor_seg = SegmentedControl()
-        self.monitor_seg.changed.connect(self._choose_monitor)
+        self.monitor_name = label("")
         self.monitor_size = label("", "mono")
+        screen_hint = label("Found automatically on any screen, even if you move the window.", "hint")
+        screen_hint.setWordWrap(True)
         lcol.addWidget(caption("Screen"))
-        lcol.addWidget(group(cell(self.monitor_seg), cell(label("Size", "muted"), None, self.monitor_size)))
+        lcol.addWidget(group(cell(label("Monitor", "muted"), None, self.monitor_name),
+                             cell(label("Size", "muted"), None, self.monitor_size), cell(screen_hint)))
         lcol.addSpacing(6)
 
         self.anchor_thumb = label("Not marked yet", "muted")
@@ -338,9 +347,9 @@ class EditorPanel(QWidget):
         if f is None:
             return None
         anchor = self.images.get(f.anchor_image)
-        if not f.monitor.width or anchor is None or not f.first_row.offset.w:
+        if anchor is None or not f.first_row.offset.w:
             return None
-        return (f.monitor, anchor, f.first_row.offset, f.first_row.filled_score,
+        return (f.monitor.index, anchor, f.first_row.offset, f.first_row.filled_score,
                 self.images.get(f.first_row.empty_sample), f.anchor_confidence)
 
     def selected(self) -> int:
@@ -373,14 +382,7 @@ class EditorPanel(QWidget):
 
     def _refresh_all(self):
         self._refresh_header()
-        self.monitors = safe_monitors()
-        idx = next((i for i, m in enumerate(self.monitors) if m.index == self.flow.monitor.index), -1)
-        self.monitor_seg.set_items([f"Monitor {m.index}" for m in self.monitors], idx)
-        m = self.flow.monitor
-        if idx < 0 and m.width:
-            self.monitor_size.setText(f"Monitor {m.index} is not connected")
-        else:
-            self.monitor_size.setText(f"{m.width} × {m.height} · {round(m.scale * 100)} %" if m.width else "—")
+        self._show_monitor()
         self._set_thumb(self.anchor_thumb, self.image(self.flow.anchor_image))
         if self.checker.last_row is None:
             self._set_thumb(self.row_thumb, None)
@@ -433,16 +435,20 @@ class EditorPanel(QWidget):
         self.flow.steps = [self.steps.item(i).data(ROLE_OBJ) for i in range(self.steps.count())]
         self.steps.viewport().update()
 
-    def _on_live_status(self, anchor, filled):
+    def _on_live_status(self, anchor, filled, monitor):
+        if monitor is not None and self.flow is not None and (monitor.index, monitor.left, monitor.top) != (
+                self.flow.monitor.index, self.flow.monitor.left, self.flow.monitor.top):
+            self.flow.monitor = monitor  # the list moved to another screen: follow it
+            self._show_monitor()
         if anchor is None:
             self.live_dot.set_state("off")
             self.live_text.setText("Mark the list to start checking")
             self.live_note.setText("")
             return
-        self.live_note.setText("live")
+        self.live_note.setText(f"live · monitor {monitor.index}" if monitor else "live")
         if not anchor:
             self.live_dot.set_state("warn")
-            self.live_text.setText("Anchor not found")
+            self.live_text.setText("Not on any screen right now")
             return
         self.live_dot.set_state("ok")
         self.live_text.setText("Found, with an item" if filled else "Found · the list is empty")
@@ -457,26 +463,32 @@ class EditorPanel(QWidget):
             self.flow.name = name.strip()
             self._check_dirty()
 
-    def _choose_monitor(self, i: int):
-        self.flow.monitor = self.monitors[i]
+    def _show_monitor(self):
         m = self.flow.monitor
+        if not self.flow.anchor_image or not m.width:
+            self.monitor_name.setText("Set when you mark the list")
+            self.monitor_size.setText("—")
+            return
+        self.monitor_name.setText(f"Monitor {m.index}")
         self.monitor_size.setText(f"{m.width} × {m.height} · {round(m.scale * 100)} %")
 
     def mark_list(self):
-        if not self.need():
+        with hidden_windows():
+            frames = grab_monitors()
+        if not frames:
+            QMessageBox.warning(self, "No screen", "The screens can't be captured right now. Try again.")
             return
-        frame = self.capture()
-        marked = mark_list(frame, self.flow.monitor, self)
+        marked = mark_list(frames, self)
         self.window().activateWindow()
         if not marked:
             return
-        anchor, offset, row = marked
+        monitor, anchor, offset, row = marked
         f = self.flow
+        f.monitor = monitor
         f.anchor_image = self.add_image(anchor, "anchor")
         f.first_row.offset = offset
         f.first_row.filled_score = vision.row_score(row)
         f.first_row.empty_sample = None
-        f.monitor = next((m for m in safe_monitors() if m.index == f.monitor.index), f.monitor)
         self.checker.last_row = row
         self._set_thumb(self.row_thumb, row)
         self._refresh_all()
