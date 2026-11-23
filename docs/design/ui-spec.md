@@ -131,5 +131,5 @@ How to do it in Qt:
 - [ ] The motion from §4 is in place and switches off with Windows animations off.
 - [ ] Looks right at 100 %, 125 % and 150 % Windows scale (no blurry icons; custom painting uses device-independent pixels).
 - [ ] `pytest` is green; the offscreen smoke tests are updated for the new window and cover each new custom widget being created and painted once.
-- [ ] Screenshots of the new UI replace `docs/screenshot.png`; the README is updated where it describes the windows.
+- [ ] Screenshots of the new UI are in `docs/images/` and the README is updated where it describes the windows.
 - [ ] `.\build.ps1` still produces the installer.
