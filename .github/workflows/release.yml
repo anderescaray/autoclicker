@@ -1,9 +1,15 @@
 name: Release
 
-# Push a tag like v1.2.0 to build the installer on Windows and publish it as a GitHub Release.
+# Build the installer on Windows and publish it as a GitHub Release, either by pushing a tag like
+# v1.2.0 or from the Actions tab ("Run workflow" with the version, which also creates the tag).
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.2.0"
+        required: true
 
 permissions:
   contents: write
@@ -20,10 +26,15 @@ jobs:
       - name: Build with build.ps1
         shell: pwsh
         run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $version = '${{ inputs.version || github.ref_name }}'.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must look like 1.2.3, got '$version'" }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           ./build.ps1 -Version $version
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
+          name: AutoClicker Visual ${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
           files: dist/installer/*.exe
           fail_on_unmatched_files: true
           generate_release_notes: true
