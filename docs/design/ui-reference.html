@@ -1,0 +1,509 @@
+<title>AutoClicker UI Reference</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: short brief, three theme tabs, then one app mock-up per theme with its floating pieces underneath. */
+:root {
+  --bg: #f2f3f6;
+  --fg: #151b28;
+  --muted: #6b7385;
+  --line: rgba(21, 27, 40, .1);
+  --card: #ffffff;
+  --accent: #0a9c74;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Roboto, system-ui, sans-serif;
+  --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", Roboto, system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0e1118; --fg: #eef1f6; --muted: #98a1b3; --line: rgba(255, 255, 255, .1); --card: #171b24; --accent: #3fd9a8; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0e1118; --fg: #eef1f6; --muted: #98a1b3; --line: rgba(255, 255, 255, .1); --card: #171b24; --accent: #3fd9a8; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.page { max-width: 1240px; margin: 0 auto; padding-block: 36px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 26px; }
+.intro { display: grid; gap: 10px; max-width: 72ch; }
+.intro .ver { font-size: 13px; color: var(--accent); font-weight: 600; }
+h1 { font-family: var(--display); font-size: clamp(28px, 3.4vw, 38px); font-weight: 700; letter-spacing: -0.025em; line-height: 1.12; margin: 0; text-wrap: balance; }
+.intro p { margin: 0; color: var(--muted); }
+
+/* segmented control used as tabs (same component the app would use) */
+.seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--line); border-radius: 12px; padding: 3px; justify-self: start; max-width: 100%; }
+.seg button { position: relative; z-index: 1; font: inherit; font-size: 14px; font-weight: 600; border: 0; background: none; color: var(--fg); padding: 8px 20px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
+.seg button span { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.seg .thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; border-radius: 9px; background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 3px 10px rgba(0,0,0,.06); transition: transform .45s cubic-bezier(.3, 1.3, .5, 1), width .45s cubic-bezier(.3, 1.3, .5, 1); }
+.seg button:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.option { display: grid; gap: 18px; }
+.option[hidden] { display: none !important; }
+.brief { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; }
+.brief > div { min-width: 0; }
+.brief h2 { font-family: var(--display); margin: 0 0 6px; font-size: 21px; letter-spacing: -0.015em; }
+.brief p { margin: 0 0 10px; color: var(--muted); }
+.brief ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.brief h3 { margin: 0 0 6px; font-size: 15px; }
+
+.stage { overflow-x: auto; padding: 8px 4px 20px; }
+.stage-inner { min-width: 1080px; display: grid; gap: 26px; }
+
+/* ================= app ================= */
+.app {
+  font-family: var(--font); color: var(--a-fg); background: var(--a-bg); font-size: 13.5px; line-height: 1.42;
+  border-radius: 14px; overflow: hidden; position: relative;
+  box-shadow: 0 0 0 1px var(--a-frame), 0 30px 70px -30px rgba(15, 22, 40, .45), 0 8px 20px -12px rgba(15, 22, 40, .2);
+}
+.chrome { height: 40px; display: flex; align-items: center; padding-left: 16px; gap: 10px; background: var(--a-chrome); color: var(--a-chrome-fg); font-size: 12.5px; font-weight: 500; }
+.chrome .logo { width: 18px; height: 18px; border-radius: 5px; background: linear-gradient(160deg, var(--mint-hi), var(--mint)); display: grid; place-items: center; }
+.chrome .logo svg { width: 10px; height: 10px; }
+.chrome .sp { flex: 1; }
+.chrome .wb { display: flex; height: 100%; }
+.chrome .wb span { width: 46px; display: grid; place-items: center; opacity: .6; }
+.chrome .wb svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 1.2; }
+
+.body { display: grid; grid-template-columns: 248px 1fr; height: 600px; }
+
+.side { background: var(--a-side); color: var(--a-side-fg); padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.side-top { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 8px; }
+.side-top h3 { margin: 0; font-family: var(--display); font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.round { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--a-side-fill); color: var(--a-side-fg); display: grid; place-items: center; cursor: pointer; transition: transform .35s cubic-bezier(.3, 1.6, .5, 1), background .2s; }
+.round:hover { background: var(--a-side-fill-hi); }
+.round:active { transform: scale(.88); transition-duration: .08s; }
+.round svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+.search { margin: 0 2px 6px; display: flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 10px; background: var(--a-side-fill); color: var(--a-side-muted); font-size: 13px; }
+.search svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+.flows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.flow { display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 11px; cursor: pointer; transition: background .25s ease; }
+.flow:hover { background: var(--a-side-fill); }
+.flow.active { background: var(--a-side-sel); color: var(--a-side-sel-fg); }
+.flow .ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 13px; }
+.flow .n { font-weight: 600; font-size: 13.5px; }
+.flow small { display: block; color: var(--a-side-muted); font-size: 12px; }
+.flow.active small { color: inherit; opacity: .78; }
+.side-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 12px; background: var(--a-side-fill); color: var(--a-side-muted); font-size: 12px; }
+.side-foot kbd { font-family: var(--font); font-weight: 600; font-size: 11px; color: var(--a-side-fg); background: var(--a-side-fill-hi); border-radius: 6px; padding: 2px 6px; }
+
+.main { padding: 22px 26px 20px; display: flex; flex-direction: column; gap: 18px; min-width: 0; overflow: hidden; }
+.head { display: flex; align-items: center; gap: 14px; }
+.head .t { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+.head .m { color: var(--a-muted); font-size: 13px; margin-top: 1px; }
+.head .sp { flex: 1; }
+
+.pill { font: inherit; font-size: 13px; font-weight: 600; border: 0; border-radius: 999px; padding: 8px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; background: var(--a-fill); color: var(--a-fg); transition: transform .4s cubic-bezier(.3, 1.6, .5, 1), background .2s, box-shadow .2s; }
+.pill:hover { background: var(--a-fill-hi); }
+.pill:active { transform: scale(.95); transition-duration: .08s; }
+.pill.go { background: var(--mint); color: var(--mint-ink); padding: 9px 20px; box-shadow: 0 6px 16px -8px var(--mint-shadow); }
+.pill.go:hover { background: var(--mint-hi); }
+.pill.tonal { background: var(--mint-tint); color: var(--mint-text); }
+.pill.tonal:hover { filter: brightness(.97); }
+.pill.danger { background: var(--red); color: #fff; }
+.pill.sm { font-size: 12.5px; padding: 6px 13px; }
+.pill svg { width: 12px; height: 12px; fill: currentColor; }
+.rec { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+.pill.recording .rec { animation: breathe 1.4s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .3; transform: scale(.8); } }
+
+.cols { display: grid; grid-template-columns: 318px 1fr; gap: 18px; min-height: 0; flex: 1; }
+.col { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+.cap { font-size: 13px; font-weight: 600; color: var(--a-muted); padding: 0 4px; display: flex; align-items: center; gap: 8px; }
+.cap .sp { flex: 1; }
+.group { background: var(--a-group); border-radius: 14px; box-shadow: 0 0 0 .5px var(--a-sep), 0 1px 2px rgba(15, 22, 40, .04); overflow: hidden; }
+.cell { display: flex; align-items: center; gap: 12px; padding: 11px 14px; position: relative; }
+.cell + .cell::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; height: .5px; background: var(--a-sep); }
+.cell .lbl { color: var(--a-muted); min-width: 70px; }
+.cell .sp { flex: 1; }
+.cell .val { color: var(--a-fg); }
+.chev { width: 7px; height: 12px; stroke: var(--a-muted); fill: none; stroke-width: 1.8; opacity: .6; }
+
+/* segmented monitor picker */
+.mseg { position: relative; display: grid; grid-template-columns: 1fr 1fr; background: var(--a-fill); border-radius: 9px; padding: 2px; width: 100%; }
+.mseg button { position: relative; z-index: 1; font: inherit; font-size: 12.5px; font-weight: 600; border: 0; background: none; color: var(--a-fg); padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+.mseg .knob { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px); background: var(--a-group); border-radius: 7px; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); transition: transform .45s cubic-bezier(.3, 1.3, .5, 1); }
+.mseg.two .knob { transform: translateX(100%); }
+
+.shot { height: 26px; flex: 1; border-radius: 7px; overflow: hidden; display: flex; align-items: center; box-shadow: 0 0 0 .5px var(--a-sep); background: #fff; padding: 3px; }
+.shot .h { width: 100%; height: 100%; border-radius: 4px; background: #2f5d8a; color: #fff; font: 600 9.5px Arial, sans-serif; display: flex; align-items: center; padding-left: 7px; }
+.shot .r { width: 100%; height: 100%; border-radius: 4px; background: #e4eefb; color: #233049; font: 9.5px Consolas, monospace; display: flex; align-items: center; gap: 12px; padding-left: 7px; }
+
+.status { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
+.status .d { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 3px var(--mint-tint); animation: soft 2.4s ease-in-out infinite; }
+@keyframes soft { 50% { box-shadow: 0 0 0 6px transparent; } }
+
+/* switch */
+.sw { width: 42px; height: 25px; border-radius: 999px; background: var(--a-fill-hi); position: relative; cursor: pointer; border: 0; padding: 0; transition: background .25s; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 21px; height: 21px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2), 0 0 0 .5px rgba(0,0,0,.04); transition: transform .4s cubic-bezier(.3, 1.5, .5, 1); }
+.sw[aria-checked="true"] { background: var(--mint); }
+.sw[aria-checked="true"]::after { transform: translateX(17px); }
+
+/* steps */
+.steps { overflow: auto; }
+.step { display: grid; grid-template-columns: 26px 92px 1fr auto; gap: 12px; align-items: center; padding: 9px 14px; position: relative; cursor: pointer; transition: background .2s; animation: in .5s cubic-bezier(.2, .9, .3, 1) both; animation-delay: calc(var(--i) * 40ms); }
+@keyframes in { from { opacity: 0; transform: translateY(8px); } }
+.step + .step::before { content: ""; position: absolute; top: 0; left: 52px; right: 0; height: .5px; background: var(--a-sep); }
+.step:hover { background: var(--a-hover); }
+.step.sel { background: var(--mint-tint); }
+.step .no { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px; font-weight: 600; color: var(--a-muted); background: var(--a-fill); font-variant-numeric: tabular-nums; }
+.step .tg { height: 30px; border-radius: 8px; background: var(--a-thumb); box-shadow: inset 0 0 0 .5px var(--a-sep); display: grid; place-items: center; overflow: hidden; }
+.step .tg b { font: 500 10.5px Arial, sans-serif; color: #1f2735; background: #fbfcfd; border: 1px solid #c5ccd6; border-radius: 3px; padding: 1px 7px; white-space: nowrap; }
+.step .tg i { font-style: normal; font-size: 10.5px; color: var(--a-muted); }
+.step .tt { font-weight: 600; }
+.step .ss { color: var(--a-muted); font-size: 12px; }
+.state { width: 22px; height: 22px; display: grid; place-items: center; }
+.state svg { width: 22px; height: 22px; }
+.state .ring { fill: none; stroke: var(--a-fill-hi); stroke-width: 2; }
+.state .spin { fill: none; stroke: var(--mint); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 18 60; transform-origin: 11px 11px; animation: spin .8s linear infinite; display: none; }
+.state .okc { fill: var(--mint); transform: scale(0); transform-origin: 11px 11px; transition: transform .35s cubic-bezier(.3, 1.6, .5, 1); }
+.state .tick { fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 14; stroke-dashoffset: 14; transition: stroke-dashoffset .3s .12s ease; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.step.running .spin { display: block; }
+.step.done .okc { transform: scale(1); }
+.step.done .tick { stroke-dashoffset: 0; }
+.step.running { background: var(--mint-tint); }
+
+.toolbar { display: flex; gap: 8px; align-items: center; padding: 2px 2px 0; }
+.toolbar .sp { flex: 1; }
+
+/* snackbar (Google) */
+.snack { position: absolute; left: 50%; bottom: 20px; transform: translate(-50%, 24px) scale(.96); opacity: 0; background: var(--a-snack); color: var(--a-snack-fg); border-radius: 12px; padding: 11px 16px; font-size: 13px; display: flex; gap: 10px; align-items: center; box-shadow: 0 12px 30px -10px rgba(0,0,0,.45); transition: transform .5s cubic-bezier(.3, 1.4, .5, 1), opacity .25s; pointer-events: none; white-space: nowrap; }
+.snack.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.snack svg { width: 16px; height: 16px; }
+
+/* ================= floating pieces ================= */
+.floats { display: grid; grid-template-columns: 1.05fr 1fr 1.15fr; gap: 22px; align-items: start; }
+.fl-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.island-wrap { height: 120px; border-radius: 18px; background: var(--a-desk); display: flex; justify-content: center; padding-top: 14px; box-shadow: inset 0 0 0 1px var(--a-frame); }
+.island { height: 40px; min-width: 180px; padding: 0 8px 0 16px; border-radius: 999px; background: #000; color: #fff; display: flex; align-items: center; gap: 10px; font-family: var(--font); font-size: 13px; box-shadow: 0 10px 30px -10px rgba(0,0,0,.6); transition: min-width .6s cubic-bezier(.3, 1.3, .5, 1), height .6s cubic-bezier(.3, 1.3, .5, 1); overflow: hidden; }
+.island .rec { animation: breathe 1.4s ease-in-out infinite; }
+.island .c { font-variant-numeric: tabular-nums; color: rgba(255,255,255,.65); }
+.island .c b { color: #fff; font-weight: 600; display: inline-block; }
+.island .c b.bump { animation: bump .4s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes bump { 40% { transform: translateY(-3px) scale(1.15); } }
+.island .ib { font: inherit; font-size: 12.5px; font-weight: 600; border: 0; border-radius: 999px; padding: 6px 12px; cursor: pointer; transition: transform .35s cubic-bezier(.3, 1.6, .5, 1); }
+.island .ib:active { transform: scale(.92); transition-duration: .08s; }
+.island .undo { background: rgba(255,255,255,.14); color: #fff; }
+.island .fin { background: var(--mint); color: var(--mint-ink); }
+.island-wrap:hover .island { min-width: 300px; }
+
+.card { font-family: var(--font); background: var(--a-group); color: var(--a-fg); border-radius: 18px; box-shadow: 0 0 0 .5px var(--a-sep), 0 18px 40px -22px rgba(15, 22, 40, .5); padding: 16px; display: grid; gap: 12px; font-size: 13.5px; }
+.runc { grid-template-columns: auto 1fr; align-items: center; column-gap: 16px; }
+.ringp { width: 64px; height: 64px; position: relative; grid-row: span 2; }
+.ringp svg { width: 64px; height: 64px; transform: rotate(-90deg); }
+.ringp .bg { fill: none; stroke: var(--a-fill-hi); stroke-width: 6; }
+.ringp .fg { fill: none; stroke: var(--mint); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 163.4; stroke-dashoffset: 163.4; transition: stroke-dashoffset .6s cubic-bezier(.3, 1.1, .5, 1); }
+.ringp .v { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.runc .t { font-weight: 700; font-family: var(--display); font-size: 15px; }
+.runc .s { color: var(--a-muted); font-size: 12.5px; }
+.runc .s b { color: var(--mint-text); font-weight: 600; }
+.runc .row { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.runc .row .sp { flex: 1; }
+.runc .hint { color: var(--a-muted); font-size: 12px; }
+
+.alert { text-align: center; gap: 10px; padding: 20px 18px 16px; }
+.alert .ic { width: 44px; height: 44px; margin: 0 auto; border-radius: 50%; background: var(--amber-tint); display: grid; place-items: center; }
+.alert .ic svg { width: 22px; height: 22px; stroke: var(--amber); fill: none; stroke-width: 2.2; stroke-linecap: round; }
+.alert h4 { margin: 0; font-family: var(--display); font-size: 16px; letter-spacing: -0.01em; }
+.alert p { margin: 0; color: var(--a-muted); font-size: 12.5px; }
+.alert .cmp { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; text-align: left; margin-top: 2px; }
+.alert figure { margin: 0; display: grid; gap: 5px; font-size: 11.5px; color: var(--a-muted); }
+.alert .im { height: 58px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 .5px var(--a-sep); position: relative; overflow: hidden; }
+.alert .im.want::after { content: "Pending requests"; position: absolute; left: 8%; right: 8%; top: 21px; height: 16px; border-radius: 3px; background: #2f5d8a; color: #fff; font: 600 8.5px Arial, sans-serif; display: flex; align-items: center; padding-left: 6px; }
+.alert .im.see { background: linear-gradient(135deg, #eef1f5, #e2e7ee); }
+.alert .acts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 4px; }
+.alert .acts .pill { justify-content: center; }
+.alert.pop { animation: pop .55s cubic-bezier(.3, 1.4, .5, 1); }
+@keyframes pop { from { opacity: 0; transform: scale(.9); } }
+
+/* ================= themes (all Ink & Mint) ================= */
+.opt {
+  --mint: #19c38f; --mint-hi: #2fd3a0; --mint-ink: #052e22; --mint-text: #0a8a64; --mint-tint: rgba(25, 195, 143, .13); --mint-shadow: rgba(25, 195, 143, .9);
+  --red: #f0445a; --amber: #e8960c; --amber-tint: rgba(232, 150, 12, .14);
+}
+/* Daylight base, shared by the three variants */
+.opt-day, .opt-mac, .opt-mat {
+  --a-bg: #f4f5f8; --a-fg: #131a29; --a-muted: #6c7486; --a-frame: rgba(19, 26, 41, .12); --a-sep: rgba(19, 26, 41, .12);
+  --a-chrome: #eceef2; --a-chrome-fg: #3a4255;
+  --a-side: #eceef2; --a-side-fg: #131a29; --a-side-muted: #6c7486; --a-side-fill: rgba(19, 26, 41, .06); --a-side-fill-hi: rgba(19, 26, 41, .1); --a-side-sel: #ffffff; --a-side-sel-fg: #131a29;
+  --a-group: #ffffff; --a-fill: rgba(19, 26, 41, .06); --a-fill-hi: rgba(19, 26, 41, .12); --a-hover: rgba(19, 26, 41, .03); --a-thumb: #f3f5f8;
+  --a-snack: #131a29; --a-snack-fg: #fff; --a-desk: linear-gradient(160deg, #dfe6ee, #cfd8e3);
+}
+.opt-day .flow.active { box-shadow: 0 1px 3px rgba(19, 26, 41, .1), 0 0 0 .5px rgba(19, 26, 41, .06); }
+
+/* D2 · Mac: macOS System Settings, system blue, white selected rows become blue */
+.opt-mac {
+  --mint: #0a74f0; --mint-hi: #2a88f5; --mint-ink: #ffffff; --mint-text: #0a63d1; --mint-tint: rgba(10, 116, 240, .1); --mint-shadow: rgba(10, 116, 240, .8);
+  --a-side: #e9ebef; --a-chrome: #e9ebef; --a-side-sel: #0a74f0; --a-side-sel-fg: #ffffff;
+}
+.opt-mac .chrome .logo svg path { fill: #fff; }
+.opt-mac .flow { border-radius: 8px; }
+.opt-mac .group { border-radius: 10px; }
+.opt-mac .pill { border-radius: 7px; }
+.opt-mac .pill.go { padding-inline: 18px; }
+.opt-mac .island .fin { color: #fff; }
+.opt-mac .main .head .t { font-size: 24px; }
+
+/* D3 · Material: Google Material 3, mint-tinted surfaces, tonal pills, rounder shapes */
+.opt-mat {
+  --mint: #0e8f6b; --mint-hi: #12a37a; --mint-ink: #ffffff; --mint-text: #0b6f53; --mint-tint: #d3f1e4; --mint-shadow: rgba(14, 143, 107, .7);
+  --a-bg: #f3f8f5; --a-chrome: #e8f1ec; --a-side: #e8f1ec; --a-side-sel: #c9ecdc; --a-side-sel-fg: #062c20;
+  --a-side-fill: rgba(14, 80, 60, .07); --a-side-fill-hi: rgba(14, 80, 60, .12);
+  --a-fill: #e3ede8; --a-fill-hi: #d3e1da; --a-sep: rgba(14, 50, 40, .1);
+}
+.opt-mat .group { border-radius: 22px; box-shadow: none; }
+.opt-mat .flow { border-radius: 999px; padding-inline: 8px 14px; }
+.opt-mat .flow .ic { border-radius: 50%; }
+.opt-mat .pill { background: var(--a-fill); }
+.opt-mat .pill.go { border-radius: 16px; padding: 12px 22px; font-size: 14px; box-shadow: 0 4px 10px -2px rgba(14, 80, 60, .35); }
+.opt-mat .pill.tonal { background: var(--mint-tint); }
+.opt-mat .search { border-radius: 999px; background: #fff; }
+.opt-mat .card { border-radius: 26px; box-shadow: 0 0 0 .5px var(--a-sep), 0 14px 34px -20px rgba(14, 60, 45, .45); }
+.opt-mat .step.sel, .opt-mat .step.running { background: #e2f5ec; }
+.opt-mat .sw[aria-checked="true"] { background: var(--mint); }
+.opt-mat .side-foot { border-radius: 999px; }
+/* Ink: the C theme, softened. Deep ink sidebar, light workspace */
+.opt-ink {
+  --a-bg: #f4f5f8; --a-fg: #131a29; --a-muted: #6c7486; --a-frame: rgba(19, 26, 41, .14); --a-sep: rgba(19, 26, 41, .12);
+  --a-chrome: #0f1626; --a-chrome-fg: #c8d0de;
+  --a-side: linear-gradient(180deg, #131c30, #0f1626); --a-side-fg: #eef2f8; --a-side-muted: #8d98af; --a-side-fill: rgba(255, 255, 255, .06); --a-side-fill-hi: rgba(255, 255, 255, .12); --a-side-sel: rgba(255, 255, 255, .1); --a-side-sel-fg: #ffffff;
+  --a-group: #ffffff; --a-fill: rgba(19, 26, 41, .06); --a-fill-hi: rgba(19, 26, 41, .12); --a-hover: rgba(19, 26, 41, .03); --a-thumb: #f3f5f8;
+  --a-snack: #131a29; --a-snack-fg: #fff; --a-desk: linear-gradient(160deg, #dfe6ee, #cfd8e3);
+}
+/* Midnight: everything ink, like macOS / Android dark mode */
+.opt-night {
+  --a-bg: #0d121d; --a-fg: #edf1f7; --a-muted: #8f9ab0; --a-frame: rgba(255, 255, 255, .09); --a-sep: rgba(255, 255, 255, .09);
+  --a-chrome: #0a0e17; --a-chrome-fg: #aab4c6;
+  --a-side: #0a0e17; --a-side-fg: #edf1f7; --a-side-muted: #7f8aa1; --a-side-fill: rgba(255, 255, 255, .06); --a-side-fill-hi: rgba(255, 255, 255, .12); --a-side-sel: rgba(255, 255, 255, .09); --a-side-sel-fg: #ffffff;
+  --a-group: #161c29; --a-fill: rgba(255, 255, 255, .07); --a-fill-hi: rgba(255, 255, 255, .14); --a-hover: rgba(255, 255, 255, .03); --a-thumb: #1d2433;
+  --a-snack: #edf1f7; --a-snack-fg: #0d121d; --a-desk: linear-gradient(160deg, #1b2333, #111725);
+  --mint-text: #3fe0ae; --mint-tint: rgba(25, 195, 143, .16);
+}
+
+.notes { display: grid; gap: 8px; padding-top: 6px; }
+.notes h3 { margin: 0; font-family: var(--display); font-size: 17px; }
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--muted); }
+.notes b { color: var(--fg); }
+
+@media (max-width: 860px) { .brief { grid-template-columns: 1fr; } .seg button span { display: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+</style>
+
+<div class="page">
+  <header class="intro">
+    <div class="ver">Design reference · see docs/design/ui-spec.md</div>
+    <h1>AutoClicker Visual interface</h1>
+    <p>Light and calm in the style of macOS System Settings: grouped lists, a segmented control, real switches, a recording bar shaped like a capsule at the top of the screen, a circular progress ring and spring motion.</p>
+    <p>Interactive mock-up of the target interface. Open it in a browser and press <b>Run</b> and <b>Record</b>, flip the switches and hover the recording bar to see the intended motion. Exact values are in <code>ui-spec.md</code>.</p>
+  </header>
+
+  <div class="seg" role="tablist" aria-label="Themes">
+    <span class="thumb"></span>
+    <button role="tab" id="tab-mac" aria-controls="opt-mac" aria-selected="true">Chosen design<span>macOS-style, blue</span></button>
+  </div>
+
+  <section class="option opt opt-mac" id="opt-mac" role="tabpanel" aria-labelledby="tab-mac" data-opt="mac"></section>
+
+  <section class="notes">
+    <h3>Motion, everywhere the same</h3>
+    <ul>
+      <li><b>Springs</b>: buttons shrink slightly when pressed and bounce back; the segmented control and switches slide with a gentle overshoot, like iOS.</li>
+      <li><b>During a run</b>, each step shows a small spinner, then a check mark that draws itself; the ring in the run panel fills item by item.</li>
+      <li><b>Recording bar</b>: a black capsule at the top of the screen. It widens on hover to reveal Undo and Finish, and the step counter pops on each click.</li>
+      <li><b>Messages</b> ("Saved", "List is empty") rise from the bottom as a short snackbar, as on Android.</li>
+      <li>All of this can be built in PySide6: QPropertyAnimation with OutBack easing for the springs, and custom-painted switch, ring and spinner widgets.</li>
+    </ul>
+  </section>
+</div>
+
+<template id="tpl">
+  <div class="brief">
+    <div><h2 data-k="name"></h2><p data-k="pitch"></p></div>
+    <div><h3>Character</h3><ul data-k="traits"></ul></div>
+  </div>
+  <div class="stage"><div class="stage-inner">
+    <div class="app">
+      <div class="chrome">
+        <span class="logo"><svg viewBox="0 0 10 10"><path d="M2 1.5 8.5 5 2 8.5z" fill="#052e22"/></svg></span>AutoClicker Visual<span class="sp"></span>
+        <span class="wb"><span><svg viewBox="0 0 10 10"><path d="M0 5h10"/></svg></span><span><svg viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" rx="1.5"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10"/></svg></span></span>
+      </div>
+      <div class="body">
+        <aside class="side">
+          <div class="side-top"><h3>Flows</h3><button class="round" aria-label="New flow"><svg viewBox="0 0 14 14"><path d="M7 2v10M2 7h10"/></svg></button></div>
+          <div class="search"><svg viewBox="0 0 14 14"><circle cx="6" cy="6" r="4.2"/><path d="m9.2 9.2 3 3" stroke-linecap="round"/></svg>Search</div>
+          <ul class="flows">
+            <li class="flow active"><span class="ic" style="background:linear-gradient(160deg,#2fd3a0,#0fa77a)">A</span><span><span class="n">Approve requests</span><small>6 steps · today, 09:42</small></span></li>
+            <li class="flow"><span class="ic" style="background:linear-gradient(160deg,#6a9bff,#3d6fe0)">C</span><span><span class="n">Clear review queue</span><small>4 steps · yesterday</small></span></li>
+            <li class="flow"><span class="ic" style="background:linear-gradient(160deg,#ffb35c,#f08a24)">D</span><span><span class="n">Confirm deliveries</span><small>5 steps · not run yet</small></span></li>
+          </ul>
+          <div class="side-foot"><kbd>F12</kbd> stops a run from anywhere</div>
+        </aside>
+        <main class="main">
+          <div class="head">
+            <div><div class="t">Approve requests</div><div class="m">6 steps · up to 100 items per run</div></div>
+            <span class="sp"></span>
+            <button class="pill sm" data-act="sim">Simulate</button>
+            <button class="pill sm tonal" data-act="one">Run 1 item</button>
+            <button class="pill go" data-act="run"><svg viewBox="0 0 10 10"><path d="M2 1 9 5 2 9z"/></svg>Run</button>
+          </div>
+          <div class="cols">
+            <div class="col">
+              <div class="cap">Screen</div>
+              <div class="group">
+                <div class="cell"><div class="mseg two"><span class="knob"></span><button data-mon="1">Monitor 1</button><button data-mon="2">Monitor 2</button></div></div>
+                <div class="cell"><span class="lbl">Size</span><span class="sp"></span><span class="val" data-k="monsize">2560 × 1440 · 125 %</span></div>
+              </div>
+              <div class="cap">The list</div>
+              <div class="group">
+                <div class="cell"><span class="lbl">Anchor</span><div class="shot"><div class="h">Pending requests</div></div></div>
+                <div class="cell"><span class="lbl">First row</span><div class="shot"><div class="r"><span>REQ-1042</span><span>Purchase order</span></div></div></div>
+                <div class="cell"><span class="status"><span class="d"></span>Found, with an item</span><span class="sp"></span><span class="val" style="color:var(--a-muted);font-size:12px">live</span></div>
+                <div class="cell" style="cursor:pointer"><span class="val" style="color:var(--mint-text);font-weight:600">Mark anchor and first row</span><span class="sp"></span><svg class="chev" viewBox="0 0 7 12"><path d="m1 1 5 5-5 5"/></svg></div>
+              </div>
+              <div class="cap">Options</div>
+              <div class="group">
+                <div class="cell"><span class="val">Pause if I move the mouse</span><span class="sp"></span><button class="sw" role="switch" aria-checked="true" aria-label="Pause if I move the mouse"></button></div>
+                <div class="cell"><span class="val">Maximise the window first</span><span class="sp"></span><button class="sw" role="switch" aria-checked="false" aria-label="Maximise the window first"></button></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="cap">Steps<span style="font-weight:400">· repeated for each item</span><span class="sp"></span>
+                <button class="pill sm" data-act="rec"><span class="rec"></span><span class="l">Record</span></button>
+                <button class="pill sm">Add step</button>
+              </div>
+              <div class="group steps"></div>
+              <div class="toolbar"><button class="pill sm">Test step</button><button class="pill sm">Edit</button><span class="sp"></span><button class="pill sm">Delete</button><button class="pill sm tonal" data-act="save">Save</button></div>
+            </div>
+          </div>
+        </main>
+      </div>
+      <div class="snack"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#19c38f"/><path d="m4.6 8.2 2.2 2.2 4.6-4.6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="msg">Saved</span></div>
+    </div>
+
+    <div class="floats">
+      <div>
+        <div class="fl-label">Recording bar, at the top of the screen (hover it)</div>
+        <div class="island-wrap"><div class="island"><span class="rec"></span><span>Recording</span><span class="c"><b>3</b> steps</span><span style="flex:1"></span><button class="ib undo">Undo</button><button class="ib fin">Finish</button></div></div>
+      </div>
+      <div>
+        <div class="fl-label">Run panel, always on top</div>
+        <div class="card runc">
+          <div class="ringp"><svg viewBox="0 0 64 64"><circle class="bg" cx="32" cy="32" r="26"/><circle class="fg" cx="32" cy="32" r="26"/></svg><span class="v">0/5</span></div>
+          <div class="t">Approve requests</div>
+          <div class="s">Ready to start</div>
+          <div class="row"><span class="hint">Or push the mouse into a corner</span><span class="sp"></span><button class="pill sm danger">Stop · F12</button></div>
+        </div>
+      </div>
+      <div>
+        <div class="fl-label">Problem dialog <button class="pill sm" data-act="replay" style="margin-left:6px">Replay</button></div>
+        <div class="card alert">
+          <div class="ic"><svg viewBox="0 0 22 22"><path d="M11 6v6"/><circle cx="11" cy="16" r=".6"/></svg></div>
+          <h4>The list isn't on screen</h4>
+          <p>Nothing has been clicked. Bring its window to the front, then try again.</p>
+          <div class="cmp"><figure><div class="im want"></div>Looking for</figure><figure><div class="im see"></div>On screen now</figure></div>
+          <div class="acts"><button class="pill sm">Cancel</button><button class="pill sm">Show where</button><button class="pill sm go">Try again</button></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</template>
+
+<script>
+(function () {
+  const V = {
+    day: { name: "Settings", pitch: "The version you picked, refined: like iPhone Settings. A pale grey sidebar, white grouped lists, and the selected flow lifting on a white card. Mint marks Run, progress and success.", traits: ["Calm and very readable", "Mint gives it its own identity", "Rounded but restrained (10–14 px corners)"] },
+    mac: { name: "Target design", pitch: "Like macOS System Settings: a pale grey sidebar where the selected flow becomes a solid blue row, white grouped lists, and a system-blue accent for Run, progress and success.", traits: ["Light, calm, a serious desktop app", "Blue reads as familiar and trustworthy", "Corners 7–10 px on controls, 14 px on the window"] },
+    mat: { name: "3 · Material", pitch: "Like a modern Google app (Material 3): surfaces with a very soft mint tint, a pill-shaped selection in the sidebar, rounder groups and a larger Run button that stands out.", traits: ["The friendliest and most modern-looking", "Colour is spread softly through the whole window", "Rounder shapes (20+ px), tonal buttons"] }
+  };
+  const STEPS = [["First row", "Click · fixed spot from the anchor", null], ["Review", "Click · waits up to 10 s", "Review"], ["Approve", "Click · waits up to 10 s", "Approve"], ["Tick the checkbox", "Click", "☑ I have reviewed"], ["Confirm", "Click", "Confirm"], ["Close the message", "Click", "OK"]];
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const stateSvg = '<span class="state"><svg viewBox="0 0 22 22"><circle class="ring" cx="11" cy="11" r="9"/><circle class="spin" cx="11" cy="11" r="9"/><circle class="okc" cx="11" cy="11" r="10"/><path class="tick" d="m6.8 11.3 2.8 2.8 5.6-5.6"/></svg></span>';
+
+  function steps(sec) {
+    sec.querySelector(".steps").innerHTML = STEPS.map(([t, s, b], i) =>
+      '<div class="step' + (i === 1 ? " sel" : "") + '" style="--i:' + i + '"><span class="no">' + (i + 1) + '</span><span class="tg">' + (b ? "<b>" + b + "</b>" : "<i>⌖ row</i>") + '</span><span><div class="tt">' + t + '</div><div class="ss">' + s + "</div></span>" + stateSvg + "</div>").join("");
+  }
+  function snack(sec, msg) {
+    const s = sec.querySelector(".snack");
+    s.querySelector(".msg").textContent = msg;
+    s.classList.add("show");
+    clearTimeout(s._t); s._t = setTimeout(() => s.classList.remove("show"), 2400);
+  }
+  function build(sec) {
+    const v = V[sec.dataset.opt];
+    sec.appendChild(document.getElementById("tpl").content.cloneNode(true));
+    sec.querySelector('[data-k="name"]').textContent = v.name;
+    sec.querySelector('[data-k="pitch"]').textContent = v.pitch;
+    sec.querySelector('[data-k="traits"]').innerHTML = v.traits.map(t => "<li>" + t + "</li>").join("");
+    steps(sec);
+    sec.addEventListener("click", e => {
+      const f = e.target.closest(".flow");
+      if (f) sec.querySelectorAll(".flow").forEach(x => x.classList.toggle("active", x === f));
+      const st = e.target.closest(".step");
+      if (st && !sec._run) sec.querySelectorAll(".step").forEach(x => x.classList.toggle("sel", x === st));
+      const sw = e.target.closest(".sw");
+      if (sw) sw.setAttribute("aria-checked", sw.getAttribute("aria-checked") !== "true");
+      const m = e.target.closest("[data-mon]");
+      if (m) {
+        sec.querySelector(".mseg").classList.toggle("two", m.dataset.mon === "2");
+        sec.querySelector('[data-k="monsize"]').textContent = m.dataset.mon === "2" ? "2560 × 1440 · 125 %" : "1920 × 1080 · 100 %";
+      }
+      const b = e.target.closest("[data-act]");
+      if (!b) return;
+      const a = b.dataset.act;
+      if (a === "run") run(sec, 5);
+      else if (a === "one") run(sec, 1);
+      else if (a === "sim") snack(sec, "Simulation: steps 1 and 2 are on screen now");
+      else if (a === "save") snack(sec, "Saved");
+      else if (a === "rec") rec(sec, b);
+      else if (a === "replay") { const al = sec.querySelector(".alert"); al.classList.remove("pop"); void al.offsetWidth; al.classList.add("pop"); }
+    });
+  }
+  function rec(sec, b) {
+    const on = !b.classList.contains("recording");
+    b.classList.toggle("recording", on);
+    b.querySelector(".l").textContent = on ? "Recording" : "Record";
+    const c = sec.querySelector(".island .c b");
+    clearInterval(sec._rec);
+    if (on) sec._rec = setInterval(() => { c.textContent = (+c.textContent % 9) + 1; c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }, 1400);
+  }
+  function run(sec, items) {
+    if (sec._run) return;
+    sec._run = true;
+    const rows = [...sec.querySelectorAll(".step")], fg = sec.querySelector(".ringp .fg"), val = sec.querySelector(".ringp .v"), s = sec.querySelector(".runc .s");
+    const C = 163.4;
+    let item = 0, idx = 0;
+    rows.forEach(r => r.classList.remove("sel", "running", "done"));
+    fg.style.strokeDashoffset = C; val.textContent = "0/" + items;
+    const tick = () => {
+      rows.forEach((r, i) => { r.classList.toggle("running", i === idx); r.classList.toggle("done", i < idx); });
+      s.innerHTML = "Item " + (item + 1) + " · <b>" + STEPS[idx][0] + "</b>";
+      idx++;
+      if (idx === rows.length) {
+        item++; idx = 0;
+        fg.style.strokeDashoffset = C * (1 - item / items); val.textContent = item + "/" + items;
+        if (item < items) rows.forEach(r => r.classList.remove("done"));
+      }
+      if (item >= items) {
+        rows.forEach(r => { r.classList.remove("running"); r.classList.add("done"); });
+        s.innerHTML = "<b>List is empty</b>";
+        snack(sec, "List is empty · " + items + " item" + (items > 1 ? "s" : "") + " processed");
+        setTimeout(() => { rows.forEach(r => r.classList.remove("done")); sec._run = false; }, 2600);
+        return;
+      }
+      setTimeout(tick, reduce ? 80 : 300);
+    };
+    tick();
+  }
+  document.querySelectorAll(".option").forEach(build);
+
+  const seg = document.querySelector(".seg"), thumb = seg.querySelector(".thumb"), tabs = [...seg.querySelectorAll("button")];
+  function place(tab) { thumb.style.width = tab.offsetWidth + "px"; thumb.style.transform = "translateX(" + (tab.offsetLeft - 3) + "px)"; }
+  function select(tab) {
+    tabs.forEach(t => { t.setAttribute("aria-selected", t === tab); document.getElementById(t.getAttribute("aria-controls")).hidden = t !== tab; });
+    place(tab);
+    steps(document.getElementById(tab.getAttribute("aria-controls")));
+    try { localStorage.setItem("acv-ui-ref", tab.id); } catch (e) {}
+  }
+  tabs.forEach(t => t.addEventListener("click", () => select(t)));
+  addEventListener("resize", () => place(tabs.find(t => t.getAttribute("aria-selected") === "true")));
+  let start = tabs[0];
+  try { const id = localStorage.getItem("acv-ui-ref"); if (id && document.getElementById(id)) start = document.getElementById(id); } catch (e) {}
+  select(start);
+})();
+</script>
