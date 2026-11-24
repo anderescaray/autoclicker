@@ -140,6 +140,12 @@ class PynputInput:
         x, y = self.mouse.position
         return int(x) - self.left, int(y) - self.top
 
+    def window_at(self, x: int, y: int) -> int:
+        return root_window_at(self.left + x, self.top + y)
+
+    def window_open(self, handle: int) -> bool:
+        return window_visible(handle)
+
     def maximize_window_at(self, x: int, y: int) -> None:
         root = root_window_at(self.left + x, self.top + y)
         if root:
@@ -161,6 +167,16 @@ def root_window_at(x: int, y: int) -> int:
     if not hwnd:
         return 0
     return user32.GetAncestor(hwnd, 2) or 0  # GA_ROOT
+
+
+def window_visible(handle: int) -> bool:
+    """True while a top-level window still exists and is shown."""
+    if not IS_WINDOWS or not handle:
+        return False
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    user32.IsWindow.argtypes = user32.IsWindowVisible.argtypes = [wintypes.HWND]
+    return bool(user32.IsWindow(handle)) and bool(user32.IsWindowVisible(handle))
 
 
 def key_name(key) -> str:

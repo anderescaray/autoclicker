@@ -25,4 +25,7 @@ def test_win32_calls_work():
     assert monitors and all(m.scale > 0 for m in monitors)
     frame = desktop.MssScreen(monitors[0]).grab()
     assert frame.shape == (monitors[0].height, monitors[0].width, 3)
-    assert isinstance(desktop.root_window_at(monitors[0].left + 5, monitors[0].top + 5), int)
+    handle = desktop.root_window_at(monitors[0].left + 5, monitors[0].top + 5)
+    assert isinstance(handle, int)
+    assert isinstance(desktop.window_visible(handle), bool)
+    assert desktop.window_visible(0) is False
