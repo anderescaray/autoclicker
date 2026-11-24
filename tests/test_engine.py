@@ -25,7 +25,10 @@ def button(img, r, text, color):
 class FakeApp:
     """A list of items; clicking first row -> Open -> Accept removes the first item."""
 
-    def __init__(self, n, *, removes=True, dialog_works=True, show_anchor=True):
+    def __init__(self, n, *, removes=True, dialog_works=True, show_anchor=True, close_frames=0):
+        self.close_frames = close_frames  # screenshots the dialog stays open after Accept (slow window)
+        self.closing = None
+        self.accept_clicks = 0
         self.items = [f"Item {i + 1}" for i in range(n)]
         self.selected = False
         self.dialog = False
@@ -34,6 +37,12 @@ class FakeApp:
         self.show_anchor = show_anchor
 
     def render(self):
+        if self.closing is not None:
+            if self.closing <= 0:
+                self.closing = None
+                self._close_dialog()
+            else:
+                self.closing -= 1
         img = np.full((H, W, 3), 235, np.uint8)
         if self.show_anchor:
             button(img, ANCHOR, "PENDING", (120, 70, 30))
@@ -52,14 +61,21 @@ class FakeApp:
     def click(self, x, y):
         inside = lambda r: r.x <= x < r.x + r.w and r.y <= y < r.y + r.h  # noqa: E731
         if self.dialog and inside(ACCEPT_BTN):
-            self.dialog = False
-            self.selected = False
-            if self.removes:
-                self.items.pop(0)
+            self.accept_clicks += 1
+            if self.close_frames:
+                self.closing = self.close_frames
+            else:
+                self._close_dialog()
         elif inside(OPEN_BTN) and self.selected and self.dialog_works:
             self.dialog = True
         elif 40 <= x < 400 and ROW0_Y <= y < ROW0_Y + ROW_H and self.items:
             self.selected = True
+
+    def _close_dialog(self):
+        self.dialog = False
+        self.selected = False
+        if self.removes:
+            self.items.pop(0)
 
 
 class FakeScreen:
@@ -274,3 +290,32 @@ def test_probe_step_finds_targets_without_clicking(step_index):
     app.selected = app.dialog = True
     status, r = engine.probe_step(flow, images, app.render(), flow.steps[step_index])
     assert status == vision.FOUND and r is not None
+
+
+def test_wait_until_gone_waits_for_a_slow_window():
+    app = FakeApp(3, close_frames=4)
+    runner, inp, problems = make_runner(app)
+    runner.flow.steps[2].wait_until_gone = True
+    result = runner.run()
+    assert result.status == engine.FINISHED and result.items == 3
+    assert app.accept_clicks == 3  # one click per item, no extra clicks while waiting
+    assert problems == []
+
+
+def test_window_that_never_closes_stops_and_retry_clicks_again():
+    app = FakeApp(1, close_frames=10_000)
+    asked = []
+
+    def ask(problem):
+        asked.append(problem)
+        if len(asked) == 1:
+            app.close_frames = 1  # the second click works
+            return engine.RETRY
+        return engine.STOP
+
+    runner, inp, problems = make_runner(app, ask=ask)
+    runner.flow.steps[2].wait_until_gone = True
+    result = runner.run()
+    assert problems[0].kind == engine.STEP_STILL_THERE and problems[0].step_index == 2
+    assert app.accept_clicks == 2
+    assert result.status == engine.FINISHED

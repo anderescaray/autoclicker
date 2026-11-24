@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QFrame,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QFrame,
     QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QLineEdit, QSpinBox, QVBoxLayout,
 )
 
@@ -43,6 +43,11 @@ class StepDialog(QDialog):
         self.keys.setPlaceholderText("e.g. enter, f5, ctrl+s")
         self.text = QLineEdit(step.text)
         self.seconds = _dspin(step.seconds, 0.1, 3600, 0.5, 1, " s")
+        self.until_gone = QCheckBox("Wait until it disappears after clicking")
+        self.until_gone.setToolTip("For a button in a window that closes when clicked: the next step starts only "
+                                   "once this window has closed. If it doesn't close in time, the run stops "
+                                   "and asks; Try again clicks it once more.")
+        self.until_gone.setChecked(step.wait_until_gone)
 
         t = step.type
         if t in (CLICK_IMAGE, CLICK_POINT):
@@ -58,6 +63,8 @@ class StepDialog(QDialog):
         if t in IMAGE_STEPS:
             form.addRow("Match confidence", self.confidence)
             form.addRow("Wait for it up to", self.timeout)
+        if t == CLICK_IMAGE:
+            form.addRow("", self.until_gone)
         if t == KEY:
             form.addRow("Key or combination", self.keys)
         if t == TEXT:
@@ -95,6 +102,7 @@ class StepDialog(QDialog):
         s.keys = self.keys.text().strip().lower()
         s.text = self.text.text()
         s.seconds = self.seconds.value()
+        s.wait_until_gone = s.type == CLICK_IMAGE and self.until_gone.isChecked()
         self.accept()
 
 
@@ -104,6 +112,7 @@ _PROBLEM_BUTTONS = {
     engine.ROW_OFFSCREEN: [("Try again", engine.RETRY), ("Show where it is", RELOCATE), ("Stop", engine.STOP)],
     engine.STEP_MISSING: [("Try again", engine.RETRY), ("Stop", engine.STOP)],
     engine.STEP_AMBIGUOUS: [("Try again", engine.RETRY), ("Stop", engine.STOP)],
+    engine.STEP_STILL_THERE: [("Click again", engine.RETRY), ("Stop", engine.STOP)],
     engine.LIST_UNCHANGED: [("Wait again", engine.RETRY), ("Stop", engine.STOP)],
     engine.USER_MOUSE: [("Continue", engine.RETRY), ("Stop", engine.STOP)],
 }
@@ -112,6 +121,8 @@ _PROBLEM_HELP = {
     engine.ROW_OFFSCREEN: "The window may have moved or shrunk. Try again, or mark the list again.",
     engine.STEP_MISSING: "Nothing has been clicked since. Bring the expected window to the front and try again.",
     engine.STEP_AMBIGUOUS: "Several places look the same, so nothing was clicked. Try again or record the step again.",
+    engine.STEP_STILL_THERE: "It was clicked, but its window is still open, so nothing else was clicked. "
+                             "Click again to retry it, or stop.",
     engine.LIST_UNCHANGED: "The first item is still there, so it won't be processed twice. "
                            "If the list needs a refresh, add a 'Press key F5' step.",
     engine.USER_MOUSE: "Put the mouse down and choose Continue when you are ready.",

@@ -29,6 +29,7 @@ ANCHOR_MISSING = "anchor_missing"
 ROW_OFFSCREEN = "row_offscreen"
 STEP_MISSING = "step_missing"
 STEP_AMBIGUOUS = "step_ambiguous"
+STEP_STILL_THERE = "step_still_there"
 LIST_UNCHANGED = "list_unchanged"
 USER_MOUSE = "user_mouse"
 
@@ -226,6 +227,8 @@ class Runner:
             m = self._wait_for_image(index, step)
             if step.type == CLICK_IMAGE:
                 self._click(m.x + step.click_offset.x, m.y + step.click_offset.y, step.button, step.clicks)
+                if step.wait_until_gone:
+                    self._wait_until_gone(index, step)
         elif step.type == CLICK_POINT:
             self._click(anchor.x + step.point.x, anchor.y + step.point.y, step.button, step.clicks)
         elif step.type == KEY:
@@ -259,6 +262,21 @@ class Runner:
                                            index, template, frame))
             if self.clock.now() >= deadline:
                 raise _StepProblem(Problem(STEP_MISSING, f"Cannot find {name}.", index, template, frame))
+            self._sleep(POLL_S)
+
+    def _wait_until_gone(self, index: int, step: Step) -> None:
+        """After clicking, wait until the target is no longer on screen (e.g. its window has closed)."""
+        template = self.images[step.image]
+        name = f"Step {index + 1} of {len(self.flow.steps)}" + (f" ({step.label})" if step.label else "")
+        deadline = self.clock.now() + step.timeout_s
+        while True:
+            self._check()
+            frame = self._grab()
+            if vision.locate(frame, template, step.confidence)[0] == vision.MISSING:
+                return
+            if self.clock.now() >= deadline:
+                raise _StepProblem(Problem(STEP_STILL_THERE, f"{name} is still on screen after clicking it.",
+                                           index, template, frame))
             self._sleep(POLL_S)
 
     def _wait_list_change(self, before: np.ndarray) -> None:

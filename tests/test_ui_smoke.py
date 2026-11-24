@@ -68,7 +68,7 @@ def test_dialogs_build(app):
     img = np.zeros((40, 80, 3), np.uint8)
     for step in (Step(type=CLICK_IMAGE), Step(type=KEY, keys="f5")):
         StepDialog(step, img)
-    for kind in (engine.ANCHOR_MISSING, engine.STEP_MISSING, engine.USER_MOUSE):
+    for kind in (engine.ANCHOR_MISSING, engine.STEP_MISSING, engine.STEP_STILL_THERE, engine.USER_MOUSE):
         ProblemDialog(engine.Problem(kind, "msg", 0, img, np.zeros((300, 400, 3), np.uint8))).grab()
 
 
@@ -153,3 +153,12 @@ def test_run_panel_starts_ready(app):
     assert not panel.ready_row.isHidden() and panel.run_row.isHidden()
     panel.set_running()
     assert panel.ready_row.isHidden() and not panel.run_row.isHidden()
+
+
+def test_step_dialog_sets_wait_until_gone(app):
+    from acv.ui.dialogs import StepDialog
+    step = Step(type=CLICK_IMAGE)
+    dlg = StepDialog(step, np.zeros((20, 40, 3), np.uint8))
+    dlg.until_gone.setChecked(True)
+    dlg._ok()
+    assert step.wait_until_gone

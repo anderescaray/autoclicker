@@ -424,7 +424,8 @@ class EditorPanel(QWidget):
     def _step_sub(s: Step) -> str:
         click = {(1, "left"): "Click", (2, "left"): "Double-click"}.get((s.clicks, s.button), "Right-click")
         if s.type == CLICK_IMAGE:
-            return f"{click} · waits up to {s.timeout_s:g} s"
+            then = " · then waits until it's gone" if s.wait_until_gone else ""
+            return f"{click} · waits up to {s.timeout_s:g} s{then}"
         if s.type == CLICK_POINT:
             return f"{click} · fixed spot from the anchor ({s.point.x}, {s.point.y})"
         if s.type == WAIT_IMAGE:

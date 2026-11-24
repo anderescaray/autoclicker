@@ -136,6 +136,7 @@ $env:PYTHONPATH = "src"; .venv\Scripts\python -m acv
 |---|---|
 | "Cannot find the list" | Make sure the window is visible and not covered, or use **Show where it is** to mark it again. |
 | A step is never found | Use the same Windows display scale and app zoom as when you recorded. Replace that step with **Add step → Click on image**. |
+| A window takes a moment to close and the next click comes too early | Double-click the step that clicks inside that window and tick **Wait until it disappears after clicking**. |
 | "The list has not updated" | If the list needs a refresh, add a **Press key** step such as `F5`. You can also raise *Wait for the list to update*. |
 | Clicks do nothing in one app | Windows blocks input into apps running as administrator. Run AutoClicker Visual as administrator too. |
 | An empty list still counts as "has an item" | With the list empty, click **Save current state as empty**. |
