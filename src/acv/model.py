@@ -73,6 +73,7 @@ class Step:
     keys: str = ""  # key: e.g. "enter", "ctrl+s"
     text: str = ""  # text: what to type
     seconds: float = 1.0  # wait: how long
+    wait_until_gone: bool = False  # click_image: after clicking, wait until the target disappears
 
     def describe(self) -> str:
         base = STEP_TYPE_NAMES.get(self.type, self.type)
