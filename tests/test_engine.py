@@ -25,7 +25,8 @@ def button(img, r, text, color):
 class FakeApp:
     """A list of items; clicking first row -> Open -> Accept removes the first item."""
 
-    def __init__(self, n, *, removes=True, dialog_works=True, show_anchor=True, close_frames=0):
+    def __init__(self, n, *, removes=True, dialog_works=True, show_anchor=True, close_frames=0, blank_while=None):
+        self.blank_while = blank_while  # closing -> True when the busy dialog repaints blank (button not drawn)
         self.close_frames = close_frames  # screenshots the dialog stays open after Accept (slow window)
         self.closing = None
         self.accept_clicks = 0
@@ -36,13 +37,17 @@ class FakeApp:
         self.dialog_works = dialog_works
         self.show_anchor = show_anchor
 
-    def render(self):
+    def tick(self):
+        """Time passes (one screenshot or one window check): a closing dialog gets closer to closed."""
         if self.closing is not None:
             if self.closing <= 0:
                 self.closing = None
                 self._close_dialog()
             else:
                 self.closing -= 1
+
+    def render(self):
+        self.tick()
         img = np.full((H, W, 3), 235, np.uint8)
         if self.show_anchor:
             button(img, ANCHOR, "PENDING", (120, 70, 30))
@@ -55,7 +60,9 @@ class FakeApp:
         if self.dialog:
             cv2.rectangle(img, (200, 200), (460, 320), (250, 250, 250), -1)
             cv2.rectangle(img, (200, 200), (460, 320), (90, 90, 90), 1)
-            button(img, ACCEPT_BTN, "Accept", (40, 40, 160))
+            blank = self.closing is not None and self.blank_while and self.blank_while(self.closing)
+            if not blank:
+                button(img, ACCEPT_BTN, "Accept", (40, 40, 160))
         return img
 
     def click(self, x, y):
@@ -108,6 +115,15 @@ class FakeInput:
 
     def maximize_window_at(self, x, y):
         pass
+
+    def window_at(self, x, y):
+        """1 = main window, 2 = the dialog (a separate window), like Win32 handles."""
+        in_dialog = self.app.dialog and 200 <= x <= 460 and 200 <= y <= 320
+        return 2 if in_dialog else 1
+
+    def window_open(self, handle):
+        self.app.tick()
+        return handle == 2 and self.app.dialog
 
 
 class FakeClock:
@@ -319,3 +335,38 @@ def test_window_that_never_closes_stops_and_retry_clicks_again():
     assert problems[0].kind == engine.STEP_STILL_THERE and problems[0].step_index == 2
     assert app.accept_clicks == 2
     assert result.status == engine.FINISHED
+
+
+def _next_click_while_dialog_open(app, inp):
+    """Record any click outside the dialog made while it is still open (= the next step came too early)."""
+    early = []
+    original_click = inp.click
+
+    def click(x, y, button, clicks):
+        if app.dialog and not (200 <= x <= 460 and 200 <= y <= 320):
+            early.append((x, y))
+        original_click(x, y, button, clicks)
+
+    inp.click = click
+    return early
+
+
+def test_waits_for_its_window_even_if_the_button_is_no_longer_visible():
+    """A busy dialog repaints blank after the click: the image check alone would move on too early."""
+    app = FakeApp(2, close_frames=8, blank_while=lambda closing: True)
+    runner, inp, problems = make_runner(app)
+    runner.flow.steps[2].wait_until_gone = True
+    early = _next_click_while_dialog_open(app, inp)
+    assert runner.run().status == engine.FINISHED
+    assert early == [] and app.accept_clicks == 2
+
+
+def test_image_check_ignores_a_one_frame_flicker():
+    """Without window information, a single missing frame is not taken for "closed"."""
+    app = FakeApp(2, close_frames=8, blank_while=lambda closing: closing == 6)
+    runner, inp, problems = make_runner(app)
+    inp.window_at = lambda x, y: 0  # unknown window: fall back to looking at the screen
+    runner.flow.steps[2].wait_until_gone = True
+    early = _next_click_while_dialog_open(app, inp)
+    assert runner.run().status == engine.FINISHED
+    assert early == [] and app.accept_clicks == 2

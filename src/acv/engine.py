@@ -21,6 +21,9 @@ from .model import CLICK_IMAGE, CLICK_POINT, KEY, TEXT, WAIT, WAIT_IMAGE, Flow, 
 log = logging.getLogger(__name__)
 
 POLL_S = 0.15
+GONE_MIN_SCORE = 0.5  # "still there" threshold after a click: lenient, a pressed/repainting button counts
+GONE_MARGIN = 0.3
+GONE_PAD_PX = 12
 MOUSE_TOLERANCE_PX = 15
 CORNER_PX = 3
 
@@ -51,6 +54,9 @@ class InputController(Protocol):
     def type_text(self, text: str) -> None: ...
     def position(self) -> tuple[int, int]: ...
     def maximize_window_at(self, x: int, y: int) -> None: ...
+    def window_at(self, x: int, y: int) -> int:
+        """Handle of the top-level window under a point (0 if unknown)."""
+    def window_open(self, handle: int) -> bool: ...
 
 
 class Clock:
@@ -226,9 +232,15 @@ class Runner:
         if step.type in (CLICK_IMAGE, WAIT_IMAGE):
             m = self._wait_for_image(index, step)
             if step.type == CLICK_IMAGE:
-                self._click(m.x + step.click_offset.x, m.y + step.click_offset.y, step.button, step.clicks)
+                x, y = m.x + step.click_offset.x, m.y + step.click_offset.y
+                window = self.inp.window_at(x, y) if step.wait_until_gone else 0
+                self._click(x, y, step.button, step.clicks)
                 if step.wait_until_gone:
-                    self._wait_until_gone(index, step)
+                    main = self.inp.window_at(anchor.x + anchor.w // 2, anchor.y + anchor.h // 2)
+                    if window and window != main:  # the button is in its own window: wait for that window
+                        self._wait_window_closed(index, step, window)
+                    else:  # same window as the list: wait until the button is gone from where it was
+                        self._wait_until_gone(index, step, m)
         elif step.type == CLICK_POINT:
             self._click(anchor.x + step.point.x, anchor.y + step.point.y, step.button, step.clicks)
         elif step.type == KEY:
@@ -264,19 +276,44 @@ class Runner:
                 raise _StepProblem(Problem(STEP_MISSING, f"Cannot find {name}.", index, template, frame))
             self._sleep(POLL_S)
 
-    def _wait_until_gone(self, index: int, step: Step) -> None:
-        """After clicking, wait until the target is no longer on screen (e.g. its window has closed)."""
-        template = self.images[step.image]
-        name = f"Step {index + 1} of {len(self.flow.steps)}" + (f" ({step.label})" if step.label else "")
+    def _step_name(self, index: int, step: Step) -> str:
+        return f"Step {index + 1} of {len(self.flow.steps)}" + (f" ({step.label})" if step.label else "")
+
+    def _wait_window_closed(self, index: int, step: Step, window: int) -> None:
+        """After clicking, wait until the window that held the target has closed."""
         deadline = self.clock.now() + step.timeout_s
+        while self.inp.window_open(window):
+            self._check()
+            if self.clock.now() >= deadline:
+                raise _StepProblem(Problem(STEP_STILL_THERE, f"{self._step_name(index, step)}: its window is "
+                                           "still open after the click.", index, self.images[step.image],
+                                           self._grab()))
+            self._sleep(POLL_S)
+
+    def _wait_until_gone(self, index: int, step: Step, where: vision.Match) -> None:
+        """After clicking, wait until the target is gone from where it was.
+
+        Only that spot is checked, with a low threshold, so a pressed or repainting button still counts
+        as there; and it must be missing twice in a row, so a flicker isn't taken for closing.
+        """
+        template = self.images[step.image]
+        threshold = max(GONE_MIN_SCORE, step.confidence - GONE_MARGIN)
+        pad = GONE_PAD_PX
+        area = Rect(where.x - pad, where.y - pad, where.w + 2 * pad, where.h + 2 * pad)
+        deadline = self.clock.now() + step.timeout_s
+        misses = 0
         while True:
             self._check()
             frame = self._grab()
-            if vision.locate(frame, template, step.confidence)[0] == vision.MISSING:
+            h, w = frame.shape[:2]
+            x0, y0 = max(area.x, 0), max(area.y, 0)
+            spot = frame[y0:min(area.y + area.h, h), x0:min(area.x + area.w, w)]
+            misses = 0 if vision.find_all(spot, template, threshold, 1) else misses + 1
+            if misses >= 2:
                 return
             if self.clock.now() >= deadline:
-                raise _StepProblem(Problem(STEP_STILL_THERE, f"{name} is still on screen after clicking it.",
-                                           index, template, frame))
+                raise _StepProblem(Problem(STEP_STILL_THERE, f"{self._step_name(index, step)} is still on "
+                                           "screen after clicking it.", index, template, frame))
             self._sleep(POLL_S)
 
     def _wait_list_change(self, before: np.ndarray) -> None:
