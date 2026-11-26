@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="900" height="380" role="img"
+  aria-label="Animation: AutoClicker Visual finds the list, clicks through one item, waits for the list to move up, and repeats until it is empty">
+<style>
+  text { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .mono { font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 12.5px; fill: #1f2735; white-space: pre; }
+  .sep { stroke: #eef0f4; }
+  .stage { fill: none; stroke: #dfe3ea; }
+  .hl { fill: #e8f1fe; stroke: #0a74f0; stroke-width: 1.5; opacity: 0; }
+  #hl5 { fill: #e6f6ee; stroke: #19a974; }
+  .num { fill: #0a74f0; }
+  .numt { fill: #fff; font-size: 12px; font-weight: 700; text-anchor: middle; }
+  .st { font-size: 14px; font-weight: 600; fill: #131a29; }
+  .sub { font-size: 11.5px; fill: #6c7486; }
+  .label { font-size: 11px; font-weight: 600; }
+  #dialog, #selected, #done, #rip-row, #rip-ok, [id^=count] { opacity: 0; }
+  #rip-row, #rip-ok { transform-box: fill-box; transform-origin: center; }
+  @keyframes cur { 0.00% { transform: translate(430px, 300px); } 6.25% { transform: translate(430px, 300px); } 9.37% { transform: translate(150px, 121px); } 10.94% { transform: translate(150px, 121px); } 13.67% { transform: translate(300px, 238px); } 16.02% { transform: translate(300px, 238px); } 18.75% { transform: translate(430px, 300px); } 25.00% { transform: translate(430px, 300px); } 31.25% { transform: translate(430px, 300px); } 34.38% { transform: translate(150px, 121px); } 35.94% { transform: translate(150px, 121px); } 38.67% { transform: translate(300px, 238px); } 41.02% { transform: translate(300px, 238px); } 43.75% { transform: translate(430px, 300px); } 50.00% { transform: translate(430px, 300px); } 56.25% { transform: translate(430px, 300px); } 59.38% { transform: translate(150px, 121px); } 60.94% { transform: translate(150px, 121px); } 63.67% { transform: translate(300px, 238px); } 66.02% { transform: translate(300px, 238px); } 68.75% { transform: translate(430px, 300px); } 100.00% { transform: translate(430px, 300px); } } @keyframes dlg { 0.00% { opacity: 0; } 10.16% { opacity: 0; } 11.33% { opacity: 1; } 15.62% { opacity: 1; } 16.80% { opacity: 0; } 35.16% { opacity: 0; } 36.33% { opacity: 1; } 40.62% { opacity: 1; } 41.80% { opacity: 0; } 60.16% { opacity: 0; } 61.33% { opacity: 1; } 65.62% { opacity: 1; } 66.80% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes sel { 0.00% { opacity: 0; } 9.77% { opacity: 0; } 10.16% { opacity: 1; } 17.97% { opacity: 1; } 18.75% { opacity: 0; } 34.77% { opacity: 0; } 35.16% { opacity: 1; } 42.97% { opacity: 1; } 43.75% { opacity: 0; } 59.77% { opacity: 0; } 60.16% { opacity: 1; } 67.97% { opacity: 1; } 68.75% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes ripr { 0.00% { opacity: 0; transform: scale(0.3); } 9.37% { opacity: 0; transform: scale(0.3); } 9.77% { opacity: 0.8; transform: scale(0.3); } 12.50% { opacity: 0; transform: scale(1.6); } 34.38% { opacity: 0; transform: scale(0.3); } 34.77% { opacity: 0.8; transform: scale(0.3); } 37.50% { opacity: 0; transform: scale(1.6); } 59.38% { opacity: 0; transform: scale(0.3); } 59.77% { opacity: 0.8; transform: scale(0.3); } 62.50% { opacity: 0; transform: scale(1.6); } 100.00% { opacity: 0; transform: scale(0.3); } } @keyframes ripo { 0.00% { opacity: 0; transform: scale(0.3); } 15.23% { opacity: 0; transform: scale(0.3); } 15.62% { opacity: 0.8; transform: scale(0.3); } 18.36% { opacity: 0; transform: scale(1.6); } 40.23% { opacity: 0; transform: scale(0.3); } 40.62% { opacity: 0.8; transform: scale(0.3); } 43.36% { opacity: 0; transform: scale(1.6); } 65.23% { opacity: 0; transform: scale(0.3); } 65.62% { opacity: 0.8; transform: scale(0.3); } 68.36% { opacity: 0; transform: scale(1.6); } 100.00% { opacity: 0; transform: scale(0.3); } } @keyframes rows { 0.00% { transform: translateY(0px); } 19.53% { transform: translateY(0px); } 23.44% { transform: translateY(-34px); } 44.53% { transform: translateY(-34px); } 48.44% { transform: translateY(-68px); } 69.53% { transform: translateY(-68px); } 73.44% { transform: translateY(-102px); } 96.88% { transform: translateY(-102px); } 96.95% { transform: translateY(0px); } 100.00% { transform: translateY(0px); } } @keyframes listin { 0.00% { opacity: 0; } 2.34% { opacity: 1; } 96.48% { opacity: 1; } 96.88% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes st1 { 0.00% { opacity: 0; } 0.00% { opacity: 0; } 0.39% { opacity: 1; } 2.73% { opacity: 1; } 3.12% { opacity: 0; } 25.00% { opacity: 0; } 25.39% { opacity: 1; } 27.73% { opacity: 1; } 28.12% { opacity: 0; } 50.00% { opacity: 0; } 50.39% { opacity: 1; } 52.73% { opacity: 1; } 53.12% { opacity: 0; } 75.00% { opacity: 0; } 75.39% { opacity: 1; } 78.13% { opacity: 1; } 78.52% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes st2 { 0.00% { opacity: 0; } 3.12% { opacity: 0; } 3.52% { opacity: 1; } 5.86% { opacity: 1; } 6.25% { opacity: 0; } 28.12% { opacity: 0; } 28.52% { opacity: 1; } 30.86% { opacity: 1; } 31.25% { opacity: 0; } 53.12% { opacity: 0; } 53.52% { opacity: 1; } 55.86% { opacity: 1; } 56.25% { opacity: 0; } 78.52% { opacity: 0; } 78.91% { opacity: 1; } 82.03% { opacity: 1; } 82.42% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes st3 { 0.00% { opacity: 0; } 6.25% { opacity: 0; } 6.64% { opacity: 1; } 18.36% { opacity: 1; } 18.75% { opacity: 0; } 31.25% { opacity: 0; } 31.64% { opacity: 1; } 43.36% { opacity: 1; } 43.75% { opacity: 0; } 56.25% { opacity: 0; } 56.64% { opacity: 1; } 68.36% { opacity: 1; } 68.75% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes st4 { 0.00% { opacity: 0; } 18.75% { opacity: 0; } 19.14% { opacity: 1; } 24.61% { opacity: 1; } 25.00% { opacity: 0; } 43.75% { opacity: 0; } 44.14% { opacity: 1; } 49.61% { opacity: 1; } 50.00% { opacity: 0; } 68.75% { opacity: 0; } 69.14% { opacity: 1; } 74.61% { opacity: 1; } 75.00% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes st5 { 0.00% { opacity: 0; } 82.42% { opacity: 0; } 82.81% { opacity: 1; } 96.48% { opacity: 1; } 96.88% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes done { 0.00% { opacity: 0; } 82.81% { opacity: 0; } 84.38% { opacity: 1; } 96.48% { opacity: 1; } 96.88% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes c0 { 0.00% { opacity: 0; } 0.00% { opacity: 0; } 0.00% { opacity: 1; } 23.36% { opacity: 1; } 23.44% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes c1 { 0.00% { opacity: 0; } 23.36% { opacity: 0; } 23.44% { opacity: 1; } 48.36% { opacity: 1; } 48.44% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes c2 { 0.00% { opacity: 0; } 48.36% { opacity: 0; } 48.44% { opacity: 1; } 73.36% { opacity: 1; } 73.44% { opacity: 0; } 100.00% { opacity: 0; } } @keyframes c3 { 0.00% { opacity: 0; } 73.36% { opacity: 0; } 73.44% { opacity: 1; } 96.80% { opacity: 1; } 96.88% { opacity: 0; } 100.00% { opacity: 0; } }
+  #cursor { animation: cur 12.8s ease-in-out infinite; } #dialog { animation: dlg 12.8s ease-in-out infinite; } #selected { animation: sel 12.8s ease-in-out infinite; } #rip-row { animation: ripr 12.8s ease-out infinite; } #rip-ok { animation: ripo 12.8s ease-out infinite; } #rows { animation: rows 12.8s ease-in-out infinite; } #rows-fade { animation: listin 12.8s ease-in-out infinite; } #hl1 { animation: st1 12.8s linear infinite; } #hl2 { animation: st2 12.8s linear infinite; } #hl3 { animation: st3 12.8s linear infinite; } #hl4 { animation: st4 12.8s linear infinite; } #hl5 { animation: st5 12.8s linear infinite; } #done { animation: done 12.8s ease-in-out infinite; } #count0 { animation: c0 12.8s step-end infinite; } #count1 { animation: c1 12.8s step-end infinite; } #count2 { animation: c2 12.8s step-end infinite; } #count3 { animation: c3 12.8s step-end infinite; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } #hl1, #count0 { opacity: 1; } }
+</style>
+<rect width="900" height="380" rx="18" fill="#f4f5f8"/>
+<text x="30" y="40" class="st" style="font-size:15px">Any desktop app with a list of pending items</text>
+<text x="500" y="40" class="st" style="font-size:15px">What AutoClicker Visual does, for every item</text>
+
+<!-- the target app -->
+<rect x="30" y="58" width="390" height="292" rx="10" fill="#fff" stroke="#d5dae3"/>
+<rect x="40" y="68" width="370" height="30" rx="4" fill="#2f5d8a"/>
+<text x="52" y="88" style="font-size:13.5px;font-weight:700;fill:#fff">Pending requests</text>
+<rect x="36" y="64" width="378" height="38" rx="7" fill="none" stroke="#f0a020" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="428" y="80" class="label" style="fill:#c77c00">anchor</text>
+<text x="428" y="94" class="sub" style="font-size:10.5px">finds the list</text>
+<clipPath id="listclip"><rect x="40" y="104" width="370" height="200"/></clipPath>
+<g clip-path="url(#listclip)">
+  <rect id="selected" x="44" y="106" width="360" height="32" rx="4" fill="#cfe3fb"/>
+  <g id="rows-fade"><g id="rows"><text x="58" y="128" class="mono">REQ-1001   Purchase order    Alice</text><line x1="44" x2="404" y1="140" y2="140" class="sep"/><text x="58" y="162" class="mono">REQ-1002   Expense report    Bob</text><line x1="44" x2="404" y1="174" y2="174" class="sep"/><text x="58" y="196" class="mono">REQ-1003   Access request    Carmen</text><line x1="44" x2="404" y1="208" y2="208" class="sep"/></g></g>
+</g>
+<rect x="40" y="104" width="370" height="36" rx="5" fill="none" stroke="#19a974" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="428" y="118" class="label" style="fill:#13865c">first row</text>
+<text x="428" y="132" class="sub" style="font-size:10.5px">empty = done</text>
+<g id="done"><text x="225" y="220" text-anchor="middle" style="font-size:15px;font-weight:700;fill:#13865c">✓ List is empty</text>
+  <text x="225" y="242" text-anchor="middle" class="sub">Done. 3 items processed.</text></g>
+
+<g id="dialog">
+  <rect x="190" y="180" width="190" height="96" rx="10" fill="#fff" stroke="#c5ccd6"/>
+  <text x="206" y="206" style="font-size:12.5px;font-weight:600;fill:#131a29">Approve this request?</text>
+  <rect x="262" y="224" width="76" height="28" rx="6" fill="#0a74f0"/>
+  <text x="300" y="243" text-anchor="middle" style="font-size:12.5px;font-weight:600;fill:#fff">OK</text>
+</g>
+<circle id="rip-row" cx="150" cy="121" r="14" fill="#0a74f0"/>
+<circle id="rip-ok" cx="300" cy="238" r="14" fill="#0a74f0"/>
+<path id="cursor" d="M0 0 L0 19 L5 14.5 L8.5 22 L12 20.5 L8.5 13 L14.5 13 Z" fill="#fff" stroke="#131a29" stroke-width="1.6" stroke-linejoin="round"/>
+
+<!-- the loop -->
+<rect id="hl1" x="500" y="70" width="370" height="50" rx="10" class="hl"/><rect x="500" y="70" width="370" height="50" rx="10" class="stage"/><circle cx="527" cy="95" r="12" class="num"/><text x="527" y="99.5" class="numt">1</text><text x="550" y="92" class="st">Find the list</text><text x="550" y="109" class="sub">by its header (the anchor)</text><rect id="hl2" x="500" y="132" width="370" height="50" rx="10" class="hl"/><rect x="500" y="132" width="370" height="50" rx="10" class="stage"/><circle cx="527" cy="157" r="12" class="num"/><text x="527" y="161.5" class="numt">2</text><text x="550" y="154" class="st">Is the first row empty?</text><text x="550" y="171" class="sub">yes → done, no → go on</text><rect id="hl3" x="500" y="194" width="370" height="50" rx="10" class="hl"/><rect x="500" y="194" width="370" height="50" rx="10" class="stage"/><circle cx="527" cy="219" r="12" class="num"/><text x="527" y="223.5" class="numt">3</text><text x="550" y="216" class="st">Do your recorded clicks</text><text x="550" y="233" class="sub">each target is found on screen first</text><rect id="hl4" x="500" y="256" width="370" height="50" rx="10" class="hl"/><rect x="500" y="256" width="370" height="50" rx="10" class="stage"/><circle cx="527" cy="281" r="12" class="num"/><text x="527" y="285.5" class="numt">4</text><text x="550" y="278" class="st">Wait until the list changes</text><text x="550" y="295" class="sub">so no item is done twice</text>
+<rect id="hl5" x="500" y="318" width="370" height="40" rx="10" class="hl"/>
+<text x="520" y="343" class="st" style="font-size:13.5px">Done when the list is empty.</text>
+<g style="font-size:12px;fill:#6c7486">
+  <text id="count0" x="868" y="343" text-anchor="end">0 processed</text>
+  <text id="count1" x="868" y="343" text-anchor="end">1 processed</text>
+  <text id="count2" x="868" y="343" text-anchor="end">2 processed</text>
+  <text id="count3" x="868" y="343" text-anchor="end">3 processed</text>
+</g>
+<path d="M880 295 C 892 260, 892 110, 880 95" fill="none" stroke="#9aa3b2" stroke-width="1.5" marker-end="url(#arr)"/>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+  <path d="M0 0 L10 5 L0 10 z" fill="#9aa3b2"/></marker></defs>
+</svg>
